@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 
 // --- CONFIGURATION ---
-// လူကြီးမင်း Deploy လုပ်လို့ရလာတဲ့ Web App URL ကို ဒီနေရာမှာ အစားထိုးပါ
+// လူကြီးမင်း၏ Deploy လုပ်ပြီးသား Web App URL ကို အသင့်ထည့်သွင်းပေးထားပါသည်
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyC1MECq8ZNzdj-RxmBaMcFfSqVk9Ijt9uuRW-szeukWuCoNBhywDz0k7W1r5mCvjhR/exec"; 
 
 export default function App() {
@@ -24,6 +24,16 @@ export default function App() {
     { id: 'Gsm reseller', name: 'GSM Reseller', icon: <Settings size={20} /> }
   ];
 
+  // Google Drive Link ကို Browser တွင် ပုံပေါ်အောင် ပြောင်းပေးသည့် Function
+  const formatImageUrl = (url) => {
+    if (!url) return "https://placehold.co/400x200/112240/ffffff?text=MM+Tech";
+    if (url.includes('drive.google.com')) {
+      const id = url.split('id=')[1] || url.split('/d/')[1]?.split('/')[0];
+      return `https://drive.google.com/uc?export=view&id=${id}`;
+    }
+    return url;
+  };
+
   // --- Data Fetching ---
   useEffect(() => {
     if (view === 'home' || view === 'products') {
@@ -32,15 +42,6 @@ export default function App() {
   }, [view]);
 
   const fetchData = async () => {
-    if (!SCRIPT_URL || SCRIPT_URL.includes("YOUR_")) {
-        // Preview data if URL is not set
-        setProducts([
-          { ID: '1', Category: 'Game', Name: 'Mobile Legends Diamonds', Plan: '257 Diamonds', Price: '12500', Des: 'Instant top-up via ID.', Link: 'https://placehold.co/400x200/001f3f/ffffff?text=MLBB' },
-          { ID: '2', Category: 'Digital product', Name: 'YouTube Premium', Plan: 'Family', Price: '5500', Des: 'No Ads.', Link: 'https://placehold.co/400x200/001f3f/ffffff?text=YouTube' }
-        ]);
-        return;
-    };
-    
     setLoading(true);
     try {
       const res = await fetch(SCRIPT_URL);
@@ -48,6 +49,10 @@ export default function App() {
       if (Array.isArray(data)) setProducts(data);
     } catch (e) {
       console.error("Fetch Error:", e);
+      // URL မချိတ်ရသေးမီ Preview အတွက် ဒေတာအချို့
+      setProducts([
+        { ID: '1', Category: 'Game', Name: 'Demo Diamonds', Plan: '100 D', Price: '5000', Des: 'Connect Sheet to See Real Items', Link: '' }
+      ]);
     } finally {
       setLoading(false);
     }
@@ -56,16 +61,14 @@ export default function App() {
   const handleOrder = async () => {
     setLoading(true);
     try {
-      if (SCRIPT_URL && !SCRIPT_URL.includes("YOUR_")) {
-          await fetch(SCRIPT_URL, {
-            method: 'POST',
-            body: JSON.stringify({
-              productName: selectedProduct.Name + " (" + selectedProduct.Plan + ")",
-              price: selectedProduct.Price,
-              fullName: "Web User"
-            })
-          });
-      }
+      await fetch(SCRIPT_URL, {
+        method: 'POST',
+        body: JSON.stringify({
+          productName: selectedProduct.Name + " (" + (selectedProduct.Plan || "") + ")",
+          price: selectedProduct.Price,
+          fullName: "Web Customer"
+        })
+      });
       setView('order_success');
     } catch (e) {
       setView('order_success'); 
@@ -74,7 +77,7 @@ export default function App() {
     }
   };
 
-  // --- SUB-COMPONENTS ---
+  // --- UI SUB-COMPONENTS ---
 
   const WelcomeScreen = () => (
     <div className="flex flex-col h-[100dvh] bg-[#0a192f] p-8 text-center items-center justify-between overflow-hidden border-x border-blue-900/20">
@@ -102,8 +105,8 @@ export default function App() {
       </div>
 
       <div className="grid grid-cols-2 gap-4 w-full max-w-sm mb-10">
-        <a href="https://sonema.znnt.org/" target="_blank" rel="noreferrer" className="bg-[#112240] py-4 rounded-xl border border-blue-900/50 text-[10px] font-black text-blue-400 text-center uppercase tracking-widest">စုံ/မ စစ်ဆေးရန်</a>
-        <a href="http://www.ceir.gov.mm" target="_blank" rel="noreferrer" className="bg-[#112240] py-4 rounded-xl border border-blue-900/50 text-[10px] font-black text-blue-400 text-center uppercase tracking-widest">CEIR စစ်ဆေးရန်</a>
+        <a href="https://sonema.znnt.org/" target="_blank" rel="noreferrer" className="bg-[#112240] py-4 rounded-xl border border-blue-900/50 text-[10px] font-black text-blue-400 text-center uppercase tracking-widest active:scale-95 transition-transform">စုံ/မ စစ်ဆေးရန်</a>
+        <a href="http://www.ceir.gov.mm" target="_blank" rel="noreferrer" className="bg-[#112240] py-4 rounded-xl border border-blue-900/50 text-[10px] font-black text-blue-400 text-center uppercase tracking-widest active:scale-95 transition-transform">CEIR စစ်ဆေးရန်</a>
       </div>
     </div>
   );
@@ -142,7 +145,7 @@ export default function App() {
             <button 
               key={c.id} 
               onClick={() => { setSelectedCat(c.id); setView('products'); }}
-              className="bg-[#112240] p-5 rounded-[2rem] flex flex-col items-center gap-3 border border-transparent active:border-blue-500 transition-all text-white"
+              className="bg-[#112240] p-5 rounded-[2rem] flex flex-col items-center gap-3 border border-transparent active:border-blue-500 transition-all text-white shadow-lg"
             >
               <div className="p-3 bg-blue-600/10 rounded-2xl text-blue-400">{c.icon}</div>
               <span className="text-xs font-bold">{c.name}</span>
@@ -157,10 +160,10 @@ export default function App() {
               <div 
                 key={p.ID || Math.random()} 
                 onClick={() => { setSelectedProduct(p); setView('details'); }}
-                className="bg-[#112240] p-4 rounded-3xl flex gap-4 border border-blue-900/20 active:scale-95 transition-all text-left"
+                className="bg-[#112240] p-4 rounded-3xl flex gap-4 border border-blue-900/20 active:scale-[0.98] transition-all text-left shadow-md"
               >
                 <div className="w-16 h-16 bg-[#0a192f] rounded-2xl overflow-hidden flex-shrink-0 border border-blue-900/30">
-                    <img src={p.Link || "https://placehold.co/100"} alt="" className="w-full h-full object-cover" />
+                    <img src={formatImageUrl(p.Link)} alt="" className="w-full h-full object-cover opacity-80" />
                 </div>
                 <div className="flex flex-col justify-center flex-1">
                   <span className="text-[8px] text-blue-400 font-black uppercase mb-1">{p.Category}</span>
@@ -171,7 +174,7 @@ export default function App() {
               </div>
             ))
           ) : (
-            <div className="py-10 text-center text-slate-500 text-xs italic">Loading items...</div>
+            <div className="py-20 text-center text-slate-500 text-xs italic">Loading items from Google Sheet...</div>
           )}
         </div>
       </div>
@@ -184,81 +187,73 @@ export default function App() {
     </div>
   );
 
-  const ProductList = () => {
-    const filtered = products.filter(p => p.Category === selectedCat);
-    return (
-      <div className="flex flex-col h-[100dvh] bg-[#0a192f]">
-        <header className="p-6 flex items-center gap-4 bg-[#112240] border-b border-blue-900/30 shadow-lg text-white flex-shrink-0">
-          <button onClick={() => setView('home')} className="p-2 bg-[#0a192f] rounded-xl"><ArrowLeft size={20}/></button>
-          <h2 className="text-xl font-black">{selectedCat}</h2>
-        </header>
-        <div className="flex-1 overflow-y-auto p-6 space-y-4">
-          {filtered.length > 0 ? filtered.map(p => (
-            <button 
-              key={p.ID || Math.random()} 
-              onClick={() => { setSelectedProduct(p); setView('details'); }}
-              className="w-full bg-[#112240] p-5 rounded-3xl flex items-center justify-between text-white border border-blue-900/20 active:bg-blue-900/40 transition-all text-left"
-            >
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-[#0a192f] rounded-xl overflow-hidden">
-                    <img src={p.Link || "https://placehold.co/100"} alt="" className="w-full h-full object-cover" />
-                </div>
-                <div>
-                  <h4 className="text-sm font-bold">{p.Name}</h4>
-                  <p className="text-[10px] text-slate-400">{p.Plan}</p>
-                  <p className="text-xs text-blue-500 font-black mt-1">{p.Price} Ks</p>
-                </div>
-              </div>
-              <ChevronRight size={18} className="text-slate-700" />
-            </button>
-          )) : (
-            <div className="py-20 text-center text-slate-500 italic">No products found.</div>
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  const ProductDetails = () => (
-    <div className="flex flex-col h-[100dvh] bg-[#0a192f] text-white">
-      <div className="relative h-[40vh] bg-[#112240] flex-shrink-0">
-        <img src={selectedProduct?.Link || "https://placehold.co/400"} className="w-full h-full object-cover opacity-70" alt="" />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#0a192f] to-transparent"></div>
-        <button onClick={() => setView('products')} className="absolute top-6 left-6 p-3 bg-white/10 backdrop-blur rounded-2xl"><ArrowLeft size={20}/></button>
-      </div>
-      <div className="px-8 -mt-10 relative flex-1 flex flex-col overflow-hidden text-left">
-        <span className="px-4 py-1 bg-blue-600/20 text-blue-400 border border-blue-500/20 rounded-full text-[8px] font-black uppercase self-start mb-4">{selectedProduct?.Category}</span>
-        <h2 className="text-3xl font-black mb-1">{selectedProduct?.Name}</h2>
-        <div className="text-2xl font-black text-blue-500 mb-6">{selectedProduct?.Price} Ks</div>
-        
-        <div className="bg-[#112240] p-6 rounded-3xl border border-blue-900/30 flex-1 overflow-y-auto mb-8">
-          <h4 className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-2">Description</h4>
-          <p className="text-slate-400 text-sm leading-relaxed">{selectedProduct?.Des}</p>
-        </div>
-
-        <button 
-          onClick={handleOrder} 
-          disabled={loading} 
-          className="w-full bg-blue-600 py-5 rounded-2xl font-black text-white shadow-xl mb-10 active:scale-95 disabled:opacity-50 transition-all flex items-center justify-center"
-        >
-          {loading ? <Loader2 className="animate-spin" /> : "Confirm Order"}
-        </button>
-      </div>
-    </div>
-  );
-
   return (
     <div className="max-w-md mx-auto h-[100dvh] bg-[#0a192f] font-sans select-none overflow-hidden relative shadow-2xl">
       {view === 'welcome' && <WelcomeScreen />}
       {view === 'home' && <HomeScreen />}
-      {view === 'products' && <ProductList />}
-      {view === 'details' && <ProductDetails />}
+      {view === 'products' && (
+        <div className="flex flex-col h-full bg-[#0a192f]">
+          <header className="p-6 flex items-center gap-4 bg-[#112240] border-b border-blue-900/30 shadow-lg text-white flex-shrink-0">
+            <button onClick={() => setView('home')} className="p-2 bg-[#0a192f] rounded-xl active:scale-90"><ArrowLeft size={20}/></button>
+            <h2 className="text-xl font-black">{selectedCat}</h2>
+          </header>
+          <div className="flex-1 overflow-y-auto p-6 space-y-4 pb-20">
+            {products.filter(p => p.Category === selectedCat).map(p => (
+              <button 
+                key={p.ID || Math.random()} 
+                onClick={() => { setSelectedProduct(p); setView('details'); }}
+                className="w-full bg-[#112240] p-5 rounded-3xl flex items-center justify-between text-white border border-blue-900/20 active:bg-blue-900/40 transition-all text-left shadow-lg"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-[#0a192f] rounded-xl overflow-hidden border border-blue-900/30">
+                      <img src={formatImageUrl(p.Link)} alt="" className="w-full h-full object-cover" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold">{p.Name}</h4>
+                    <p className="text-[10px] text-slate-400">{p.Plan}</p>
+                    <p className="text-xs text-blue-500 font-black mt-1">{p.Price} Ks</p>
+                  </div>
+                </div>
+                <ChevronRight size={18} className="text-slate-700" />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {view === 'details' && (
+        <div className="flex flex-col h-full text-white bg-[#0a192f] overflow-hidden">
+          <div className="relative h-[40vh] bg-[#112240] flex-shrink-0">
+            <img src={formatImageUrl(selectedProduct?.Link)} className="w-full h-full object-cover opacity-70" alt="" />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#0a192f] to-transparent"></div>
+            <button onClick={() => setView('products')} className="absolute top-6 left-6 p-3 bg-white/10 backdrop-blur rounded-2xl active:scale-90"><ArrowLeft size={20}/></button>
+          </div>
+          <div className="px-8 -mt-10 relative flex-1 flex flex-col overflow-hidden text-left">
+            <span className="px-4 py-1 bg-blue-600/20 text-blue-400 border border-blue-500/20 rounded-full text-[8px] font-black uppercase self-start mb-4">{selectedProduct?.Category}</span>
+            <h2 className="text-3xl font-black mb-1 leading-tight">{selectedProduct?.Name}</h2>
+            <p className="text-slate-400 font-bold mb-1">{selectedProduct?.Plan}</p>
+            <div className="text-2xl font-black text-blue-500 mb-6">{selectedProduct?.Price} Ks</div>
+            
+            <div className="bg-[#112240] p-6 rounded-3xl border border-blue-900/30 flex-1 overflow-y-auto mb-8 shadow-inner">
+              <h4 className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-2">Description</h4>
+              <p className="text-slate-400 text-sm leading-relaxed">{selectedProduct?.Des}</p>
+            </div>
+
+            <button 
+              onClick={handleOrder} 
+              disabled={loading} 
+              className="w-full bg-blue-600 py-5 rounded-2xl font-black text-white shadow-[0_15px_30px_-5px_rgba(37,99,235,0.4)] mb-10 active:scale-95 disabled:opacity-50 transition-all flex items-center justify-center gap-3"
+            >
+              {loading ? <Loader2 className="animate-spin" /> : "Confirm Order"}
+            </button>
+          </div>
+        </div>
+      )}
       {view === 'order_success' && (
-        <div className="h-full flex flex-col items-center justify-center p-10 text-center text-white">
-          <CheckCircle2 size={100} className="text-green-500 mb-6" />
+        <div className="h-full flex flex-col items-center justify-center p-10 text-center text-white bg-[#0a192f]">
+          <CheckCircle2 size={100} className="text-green-500 mb-6 animate-bounce" />
           <h2 className="text-3xl font-black mb-4">Successful!</h2>
           <p className="text-slate-400 mb-10">အော်ဒါတင်ခြင်း အောင်မြင်ပါတယ်ရှင့်။ ပစ္စည်းအား Telegram မှတစ်ဆင့် ပို့ဆောင်ပေးပါမည်။</p>
-          <button onClick={() => setView('home')} className="w-full bg-[#112240] py-5 rounded-2xl font-black text-blue-400">Back to Home</button>
+          <button onClick={() => setView('home')} className="w-full bg-[#112240] py-5 rounded-2xl font-black text-blue-400 active:scale-95">Back to Home</button>
         </div>
       )}
     </div>
