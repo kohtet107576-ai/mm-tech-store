@@ -63,22 +63,21 @@ export default function App() {
   };
 
   const WelcomeScreen = () => (
-    <div className="flex flex-col min-h-[100dvh] bg-[#0a192f] p-8 text-center justify-between items-center overflow-hidden">
-      {/* Top Logo Section */}
-      <div className="flex flex-col items-center mt-10">
-        <div className="w-32 h-32 bg-[#112240] rounded-3xl flex items-center justify-center border border-blue-500/30 shadow-2xl mb-6 overflow-hidden">
-          {/* Logo Placeholder -Replace with actual image if available */}
+    <div className="flex flex-col h-[100dvh] bg-[#0a192f] p-8 text-center justify-between items-center overflow-hidden">
+      {/* Top Logo Section - Logo space ကို fixed ပေးထားပါတယ် */}
+      <div className="flex flex-col items-center pt-10">
+        <div className="w-36 h-36 bg-[#112240] rounded-[2.5rem] flex items-center justify-center border border-blue-500/30 shadow-[0_20px_50px_rgba(0,0,0,0.3)] mb-8 overflow-hidden">
           <img src="https://placehold.co/200x200/001f3f/3b82f6?text=MM+TECH" alt="MM Tech Logo" className="w-full h-full object-cover" />
         </div>
-        <h1 className="text-4xl font-black text-white mb-2 tracking-tight">MM Tech</h1>
-        <p className="text-slate-400 text-sm leading-relaxed max-w-[250px]">
+        <h1 className="text-4xl font-black text-white mb-3 tracking-tight">MM Tech မှ ကြိုဆိုပါတယ်ရှင့်</h1>
+        <p className="text-slate-400 text-sm leading-relaxed max-w-[280px]">
           လူကြီးမင်း အလိုရှိတဲ့ product ကိုဝယ်ဖို့ အောက်က <br/>
           <span className="text-blue-400 font-bold">🚀 Start Shopping</span> button ကို နှိပ်ပေးပါရှင့်။
         </p>
       </div>
 
-      {/* Middle Buttons Section */}
-      <div className="w-full max-w-sm space-y-6">
+      {/* Middle Buttons Section - အလယ်မှာ နေရာယူစေပါတယ် */}
+      <div className="w-full max-w-sm flex flex-col items-center gap-4">
         <button 
           onClick={() => setView('home')}
           className="w-full bg-blue-600 hover:bg-blue-500 text-white py-5 rounded-2xl font-bold shadow-[0_10px_20px_-5px_rgba(37,99,235,0.4)] active:scale-95 transition-all flex items-center justify-center gap-3"
@@ -86,14 +85,14 @@ export default function App() {
           🚀 Start Shopping <ChevronRight size={20} />
         </button>
 
-        <button className="flex items-center justify-center gap-2 text-slate-300 font-medium py-2 hover:text-white transition-colors w-full">
+        <button className="flex items-center justify-center gap-2 text-slate-300 font-medium py-3 hover:text-white transition-colors w-full">
           <Star size={18} className="text-yellow-500 fill-yellow-500" /> 
           MM Tech Grand Opening Promotion
         </button>
       </div>
 
-      {/* Bottom Footer Links */}
-      <div className="grid grid-cols-2 gap-4 w-full max-w-sm mb-6">
+      {/* Bottom Footer Links - အောက်ဆုံးမှာ fix ဖြစ်နေစေပါတယ် */}
+      <div className="grid grid-cols-2 gap-4 w-full max-w-sm mb-10 pt-4">
         <a href="https://sonema.znnt.org/" target="_blank" rel="noreferrer" className="bg-[#112240] p-4 rounded-2xl border border-blue-900/50 flex flex-col items-center active:bg-blue-900/30 transition-colors shadow-lg">
           <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">စုံ/မ စစ်ဆေးရန်</span>
         </a>
@@ -105,11 +104,11 @@ export default function App() {
   );
 
   const HomeScreen = () => (
-    <div className="min-h-[100dvh] bg-[#0a192f] pb-24">
+    <div className="h-[100dvh] flex flex-col bg-[#0a192f] overflow-hidden">
       <div className="bg-[#112240] p-6 rounded-b-[2.5rem] shadow-xl border-b border-blue-900/30">
         <div className="flex justify-between items-center mb-6">
           <div>
-            <p className="text-blue-400 text-xs font-black uppercase tracking-[0.2em]">Premium Store</p>
+            <p className="text-blue-400 text-[10px] font-black uppercase tracking-[0.2em]">Premium Store</p>
             <h2 className="text-2xl font-black text-white">MM Tech Store</h2>
           </div>
           <div className="w-12 h-12 bg-blue-600/20 rounded-2xl flex items-center justify-center text-blue-400 border border-blue-500/20">
@@ -128,7 +127,7 @@ export default function App() {
         </div>
       </div>
 
-      <div className="px-6 mt-8">
+      <div className="flex-1 overflow-y-auto px-6 pt-8 pb-24 custom-scrollbar">
         <h3 className="font-bold text-slate-300 mb-4 text-xs uppercase tracking-widest">Categories</h3>
         <div className="grid grid-cols-2 gap-4 mb-10">
           {categories.map(cat => (
@@ -171,7 +170,7 @@ export default function App() {
         </div>
       </div>
 
-      <nav className="fixed bottom-0 left-0 right-0 bg-[#0a192f]/90 backdrop-blur-xl border-t border-blue-900/30 p-5 flex justify-around items-center shadow-[0_-10px_30px_rgba(0,0,0,0.5)]">
+      <nav className="fixed bottom-0 left-0 right-0 bg-[#0a192f]/95 backdrop-blur-xl border-t border-blue-900/30 p-5 flex justify-around items-center shadow-[0_-10px_30px_rgba(0,0,0,0.5)] z-50">
         <button onClick={() => setView('home')} className="text-blue-500 p-2"><ShoppingBag size={28} /></button>
         <button className="text-slate-600 p-2"><History size={28} /></button>
         <button onClick={() => setView('welcome')} className="text-slate-600 p-2"><Settings size={28} /></button>
@@ -180,16 +179,16 @@ export default function App() {
   );
 
   return (
-    <div className="max-w-md mx-auto min-h-[100dvh] relative bg-[#0a192f] overflow-x-hidden font-sans select-none">
+    <div className="max-w-md mx-auto h-[100dvh] relative bg-[#0a192f] overflow-x-hidden font-sans select-none shadow-2xl">
       {view === 'welcome' && <WelcomeScreen />}
       {view === 'home' && <HomeScreen />}
       {view === 'products' && (
-        <div className="min-h-[100dvh] bg-[#0a192f]">
+        <div className="h-[100dvh] flex flex-col bg-[#0a192f]">
           <header className="p-6 flex items-center gap-4 bg-[#112240] border-b border-blue-900/30 shadow-lg">
-            <button onClick={() => setView('home')} className="p-2 bg-[#0a192f] border border-blue-900/50 rounded-xl text-white"><ArrowLeft size={20}/></button>
+            <button onClick={() => setView('home')} className="p-2 bg-[#0a192f] border border-blue-900/50 rounded-xl text-white active:scale-90 transition-transform"><ArrowLeft size={20}/></button>
             <h2 className="text-xl font-black text-white">{selectedCat}</h2>
           </header>
-          <div className="p-6 space-y-4">
+          <div className="flex-1 overflow-y-auto p-6 space-y-4">
             {products.filter(p => p.Category === selectedCat).map(p => (
               <div 
                 key={p.id}
@@ -212,38 +211,49 @@ export default function App() {
         </div>
       )}
       {view === 'details' && (
-        <div className="min-h-[100dvh] bg-[#0a192f] pb-10 text-white">
+        <div className="h-[100dvh] bg-[#0a192f] flex flex-col text-white overflow-hidden">
           <div className="relative h-[45vh] bg-[#112240]">
             <img src={selectedProduct.Link} className="w-full h-full object-cover opacity-60" />
-            <div className="absolute inset-0 bg-gradient-to-t from-[#0a192f] to-transparent"></div>
+            <div className="absolute inset-0 bg-gradient-to-t from-[#0a192f] via-transparent to-transparent"></div>
             <button 
               onClick={() => setView('products')} 
-              className="absolute top-6 left-6 p-3 bg-white/10 backdrop-blur rounded-2xl border border-white/10 shadow-lg"
+              className="absolute top-6 left-6 p-3 bg-white/10 backdrop-blur rounded-2xl border border-white/10 shadow-lg active:scale-90 transition-transform"
             >
               <ArrowLeft size={20}/>
             </button>
           </div>
-          <div className="px-8 -mt-16 relative">
+          <div className="px-8 -mt-16 relative flex-1 flex flex-col">
              <div className="space-y-1 mb-8">
                 <span className="px-4 py-1 bg-blue-600/20 text-blue-400 border border-blue-500/20 rounded-full text-[9px] font-black uppercase tracking-[0.2em]">{selectedProduct.Category}</span>
                 <h2 className="text-3xl font-black text-white pt-2 leading-tight">{selectedProduct.Name}</h2>
                 <div className="text-2xl font-black text-blue-500 mt-2">{selectedProduct.Price} Ks</div>
               </div>
-              <button 
-                onClick={handleOrder}
-                disabled={loading}
-                className="w-full bg-blue-600 text-white py-5 rounded-2xl font-black shadow-xl flex items-center justify-center gap-3"
-              >
-                {loading ? <Loader2 className="animate-spin" /> : "Confirm Order"}
-              </button>
+              
+              <div className="bg-[#112240] p-6 rounded-3xl border border-blue-900/30 mb-8">
+                <p className="text-slate-400 text-sm leading-relaxed">{selectedProduct.Des}</p>
+              </div>
+
+              <div className="mt-auto pb-10">
+                <button 
+                  onClick={handleOrder}
+                  disabled={loading}
+                  className="w-full bg-blue-600 text-white py-5 rounded-2xl font-black shadow-[0_15px_30px_rgba(37,99,235,0.4)] flex items-center justify-center gap-3 active:scale-95 transition-all"
+                >
+                  {loading ? <Loader2 className="animate-spin" /> : "Confirm Order"}
+                </button>
+              </div>
           </div>
         </div>
       )}
       {view === 'order_success' && (
         <div className="h-[100dvh] bg-[#0a192f] flex flex-col items-center justify-center p-10 text-center">
-          <CheckCircle2 size={80} className="text-green-500 mb-6" />
+          <div className="relative mb-8">
+            <div className="absolute inset-0 bg-green-500/20 blur-3xl rounded-full"></div>
+            <CheckCircle2 size={100} className="text-green-500 relative" />
+          </div>
           <h2 className="text-3xl font-black text-white mb-4">Successful!</h2>
-          <button onClick={() => setView('home')} className="w-full bg-[#112240] text-blue-400 py-5 rounded-2xl font-black">Home</button>
+          <p className="text-slate-400 mb-10">Admin မှ စစ်ဆေးပြီး ပစ္စည်းအား Telegram မှတစ်ဆင့် ပို့ဆောင်ပေးပါမည်။</p>
+          <button onClick={() => setView('home')} className="w-full bg-[#112240] text-blue-400 py-5 rounded-2xl font-black active:scale-95 transition-all">Home</button>
         </div>
       )}
     </div>
