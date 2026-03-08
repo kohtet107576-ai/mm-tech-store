@@ -7,11 +7,23 @@ import {
 
 // --- CONFIGURATION ---
 // ၁။ လူကြီးမင်းရဲ့ Logo Direct Link (Google Drive မှ ရလာသော လင့်)
-const LOGO_URL = "https://drive.google.com/uc?export=view&id=1mIT1IUmxc_4Ese8NwMOidpmnFCJ1Ab8X"; 
+const RAW_LOGO_URL = "https://drive.google.com/uc?export=view&id=1mIT1IUmxc_4Ese8NwMOidpmnFCJ1Ab8X"; 
 
 // ၂။ Google Web App URL တည်ဆောက်ခြင်း
 const SCRIPT_ID = "AKfycbyC1MECq8ZNzdj-RxmBaMcFfSqVk9Ijt9uuRW-szeukWuCoNBhywDz0k7W1r5mCvjhR";
 const SCRIPT_URL = `https://script.google.com/macros/s/${SCRIPT_ID}/exec`; 
+
+// Google Drive Link ကို Direct Link ဖြစ်အောင် ပြောင်းပေးသည့် Function
+const getDirectLink = (url) => {
+  if (!url) return "";
+  if (url.includes("drive.google.com")) {
+    const fileId = url.split("/d/")[1]?.split("/")[0] || url.split("id=")[1]?.split("&")[0];
+    return fileId ? `https://lh3.googleusercontent.com/d/${fileId}` : url;
+  }
+  return url;
+};
+
+const LOGO_URL = getDirectLink(RAW_LOGO_URL);
 
 export default function App() {
   const [view, setView] = useState('welcome'); // welcome, home, products, details, order_success
@@ -76,7 +88,13 @@ export default function App() {
   const WelcomeScreen = () => (
     <div className="flex flex-col items-center justify-center min-h-screen bg-[#0a192f] p-8 text-center">
       <div className="w-32 h-32 bg-[#112240] rounded-[2.5rem] flex items-center justify-center mb-8 border border-blue-500/20 shadow-2xl overflow-hidden p-2">
-        <img src={LOGO_URL} alt="MM Tech Logo" className="w-full h-full object-contain" />
+        <img 
+          src={LOGO_URL} 
+          alt="MM Tech Logo" 
+          className="w-full h-full object-contain" 
+          referrerPolicy="no-referrer"
+          onError={(e) => e.target.src = "https://via.placeholder.com/150/112240/4ade80?text=MM+TECH"}
+        />
       </div>
       <h1 className="text-3xl font-black text-white mb-3 tracking-tight text-center">MM Tech မှ ကြိုဆိုပါတယ်ရှင့်</h1>
       <p className="text-slate-400 mb-12 text-sm leading-relaxed text-center">
@@ -107,12 +125,12 @@ export default function App() {
   );
 
   const HomeScreen = () => (
-    <div className="min-h-screen bg-[#0a192f] pb-24 text-center">
+    <div className="min-h-screen bg-[#0a192f] pb-24 text-center text-white">
       <div className="bg-[#112240] p-6 rounded-b-[2.5rem] shadow-xl border-b border-blue-900/30">
         <div className="flex justify-between items-center mb-6">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-[#0a192f] rounded-xl overflow-hidden border border-blue-500/20 p-1">
-              <img src={LOGO_URL} className="w-full h-full object-contain" />
+              <img src={LOGO_URL} className="w-full h-full object-contain" referrerPolicy="no-referrer" />
             </div>
             <h2 className="text-xl font-black text-white">MM Tech Store</h2>
           </div>
@@ -145,8 +163,8 @@ export default function App() {
           ))}
         </div>
 
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="font-bold text-slate-300 text-xs uppercase tracking-widest text-left">Popular Items</h3>
+        <div className="flex justify-between items-center mb-4 text-left">
+          <h3 className="font-bold text-slate-300 text-xs uppercase tracking-widest">Popular Items</h3>
           {loading && <Loader2 className="animate-spin text-blue-500" size={16} />}
         </div>
         
@@ -159,15 +177,16 @@ export default function App() {
             >
               <div className="w-16 h-16 bg-[#0a192f] rounded-2xl overflow-hidden flex-shrink-0">
                 <img 
-                  src={p.Link || "https://via.placeholder.com/150/112240/4ade80?text=Product"} 
+                  src={getDirectLink(p.Link) || "https://via.placeholder.com/150/112240/4ade80?text=MM+Tech"} 
                   className="w-full h-full object-cover opacity-80" 
+                  referrerPolicy="no-referrer"
                   onError={(e) => e.target.src = "https://via.placeholder.com/150/112240/4ade80?text=Product"}
                 />
               </div>
               <div className="flex flex-col justify-center flex-grow">
-                <span className="text-[8px] text-blue-400 font-black uppercase tracking-[0.2em] mb-1">{p.Category}</span>
-                <h4 className="font-bold text-white text-sm">{p.Name}</h4>
-                <span className="text-blue-500 font-black text-xs mt-1">{p.Price} Ks</span>
+                <span className="text-[8px] text-blue-400 font-black uppercase tracking-[0.2em] mb-1 text-left">{p.Category}</span>
+                <h4 className="font-bold text-white text-sm text-left">{p.Name}</h4>
+                <span className="text-blue-500 font-black text-xs mt-1 text-left">{p.Price} Ks</span>
               </div>
               <ChevronRight size={18} className="text-slate-700 mt-5" />
             </div>
@@ -177,7 +196,7 @@ export default function App() {
       
       {/* Bottom Nav */}
       <nav className="fixed bottom-0 left-0 right-0 bg-[#0a192f]/90 backdrop-blur-xl border-t border-blue-900/30 p-5 flex justify-around items-center shadow-2xl">
-        <button onClick={() => setView('home')} className="text-blue-500"><ShoppingBag size={24} /></button>
+        <button onClick={() => setView('home')} className="text-blue-600"><ShoppingBag size={24} /></button>
         <button className="text-slate-600"><History size={24} /></button>
         <button onClick={() => setView('welcome')} className="text-slate-600"><Settings size={24} /></button>
       </nav>
@@ -187,7 +206,7 @@ export default function App() {
   const ProductList = () => {
     const filtered = products.filter(p => p.Category === selectedCat);
     return (
-      <div className="min-h-screen bg-[#0a192f] text-center">
+      <div className="min-h-screen bg-[#0a192f] text-center text-white">
         <header className="p-6 flex items-center gap-4 bg-[#112240] border-b border-blue-900/30 shadow-lg">
           <button onClick={() => setView('home')} className="p-2 bg-[#0a192f] border border-blue-900/50 rounded-xl text-white"><ArrowLeft size={20}/></button>
           <h2 className="text-xl font-black text-white">{selectedCat}</h2>
@@ -201,7 +220,12 @@ export default function App() {
             >
               <div className="flex items-center gap-4">
                 <div className="w-14 h-14 bg-[#0a192f] rounded-2xl border border-blue-900/50 overflow-hidden">
-                  <img src={p.Link || "https://via.placeholder.com/150"} className="w-full h-full object-cover opacity-70" />
+                  <img 
+                    src={getDirectLink(p.Link) || "https://via.placeholder.com/150"} 
+                    className="w-full h-full object-cover opacity-70" 
+                    referrerPolicy="no-referrer"
+                    onError={(e) => e.target.src = "https://via.placeholder.com/150/112240/4ade80?text=Product"}
+                  />
                 </div>
                 <div>
                   <h4 className="font-bold text-white text-sm">{p.Name} ({p.Plan})</h4>
@@ -219,7 +243,7 @@ export default function App() {
   };
 
   const ProductDetails = () => {
-    // Payment info logic from bot.py
+    // Payment info logic
     const kpay = (selectedProduct.Category === 'Game' || selectedProduct.Category === 'Digital product') 
       ? "09793655312 (Sai Khun Thet Hein)" 
       : "09402021942 (Hnin Pwint Phyu)";
@@ -227,16 +251,21 @@ export default function App() {
     return (
       <div className="min-h-screen bg-[#0a192f] text-white text-center">
         <div className="relative h-[40vh] bg-[#112240]">
-          <img src={selectedProduct.Link || "https://via.placeholder.com/400x300"} className="w-full h-full object-cover opacity-60" />
+          <img 
+            src={getDirectLink(selectedProduct.Link) || "https://via.placeholder.com/400x300"} 
+            className="w-full h-full object-cover opacity-60" 
+            referrerPolicy="no-referrer"
+            onError={(e) => e.target.src = "https://via.placeholder.com/400x300/112240/4ade80?text=Preview"}
+          />
           <div className="absolute inset-0 bg-gradient-to-t from-[#0a192f] to-transparent"></div>
           <button onClick={() => setView('products')} className="absolute top-6 left-6 p-3 bg-white/10 backdrop-blur rounded-2xl border border-white/10 shadow-lg">
             <ArrowLeft size={20}/>
           </button>
         </div>
         <div className="px-8 -mt-12 relative text-left">
-          <span className="px-3 py-0.5 bg-blue-600/20 text-blue-400 border border-blue-500/20 rounded-full text-[8px] font-black uppercase tracking-[0.2em]">{selectedProduct.Category}</span>
-          <h2 className="text-2xl font-black text-white pt-2 leading-tight">{selectedProduct.Name}</h2>
-          <p className="text-slate-400 font-medium text-xs mb-6">{selectedProduct.Plan}</p>
+          <span className="px-3 py-0.5 bg-blue-600/20 text-blue-400 border border-blue-500/20 rounded-full text-[8px] font-black uppercase tracking-[0.2em] text-left">{selectedProduct.Category}</span>
+          <h2 className="text-2xl font-black text-white pt-2 leading-tight text-left">{selectedProduct.Name}</h2>
+          <p className="text-slate-400 font-medium text-xs mb-6 text-left">{selectedProduct.Plan}</p>
           
           <div className="bg-[#112240] p-6 rounded-3xl border border-blue-900/30 mb-8">
             <h3 className="font-black text-blue-400 mb-2 uppercase text-[9px] tracking-widest text-left">Description</h3>
@@ -270,7 +299,7 @@ export default function App() {
   };
 
   return (
-    <div className="max-w-md mx-auto min-h-screen bg-[#0a192f] font-sans relative overflow-x-hidden text-center">
+    <div className="max-w-md mx-auto min-h-screen bg-[#0a192f] font-sans relative overflow-x-hidden text-center text-white">
       {view === 'welcome' && <WelcomeScreen />}
       {view === 'home' && <HomeScreen />}
       {view === 'products' && <ProductList />}
