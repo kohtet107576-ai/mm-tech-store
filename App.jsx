@@ -11,7 +11,8 @@ import {
   CheckCircle2,
   Gift,
   Search,
-  Loader2
+  Loader2,
+  Star
 } from 'lucide-react';
 
 // --- CONFIGURATION ---
@@ -86,8 +87,9 @@ export default function App() {
     }
   };
 
-  const WelcomeScreen = () => (
-    <div className="flex flex-col h-full w-full bg-[#0a192f] text-center overflow-hidden">
+  // --- RENDER FUNCTIONS (Fixed Layout Collapse & Remount Issues) ---
+  const renderWelcomeScreen = () => (
+    <div className="flex flex-col h-full w-full text-center overflow-hidden">
       <div className="flex-1 flex flex-col items-center justify-center px-6">
         <div className="w-28 h-28 bg-[#112240] border border-blue-500/20 rounded-3xl flex items-center justify-center mb-8 shadow-[0_20px_50px_rgba(0,0,0,0.3)]">
           <ShoppingBag size={56} className="text-blue-500" />
@@ -107,7 +109,7 @@ export default function App() {
         </button>
       </div>
 
-      <div className="p-6 pb-8 bg-[#0a192f] border-t border-blue-900/30 mt-auto">
+      <div className="p-6 pb-8 border-t border-blue-900/30 mt-auto">
         <div className="grid grid-cols-2 gap-4 w-full max-w-sm mx-auto">
           <a href="https://sonema.znnt.org/" target="_blank" rel="noreferrer" className="bg-[#112240] py-4 rounded-xl border border-blue-900/50 flex flex-col items-center shadow-sm active:bg-[#1a2d4f] transition-colors">
             <span className="text-[11px] font-black text-blue-400 uppercase tracking-widest">စုံ/မ စစ်ဆေးရန်</span>
@@ -120,8 +122,8 @@ export default function App() {
     </div>
   );
 
-  const HomeScreen = () => (
-    <div className="flex flex-col h-full w-full bg-[#0a192f] overflow-hidden relative">
+  const renderHomeScreen = () => (
+    <div className="flex flex-col h-full w-full overflow-hidden relative">
       <div className="bg-[#112240] p-6 rounded-b-[2.5rem] shadow-xl border-b border-blue-900/30 flex-shrink-0 z-10">
         <div className="flex justify-between items-center mb-6">
           <div className="text-left">
@@ -204,10 +206,10 @@ export default function App() {
     </div>
   );
 
-  const ProductList = () => {
+  const renderProductList = () => {
     const filtered = products.filter(p => getVal(p, 'Category') === selectedCat);
     return (
-      <div className="flex flex-col h-full w-full bg-[#0a192f] overflow-hidden relative">
+      <div className="flex flex-col h-full w-full overflow-hidden relative">
         <header className="p-6 flex items-center gap-4 bg-[#112240] shadow-xl flex-shrink-0 z-10 border-b border-blue-900/30">
           <button onClick={() => setView('home')} className="p-2 bg-[#0a192f] border border-blue-900/50 rounded-xl active:scale-90 transition-transform text-white"><ArrowLeft size={20}/></button>
           <h2 className="text-xl font-black text-white">{selectedCat}</h2>
@@ -243,15 +245,15 @@ export default function App() {
     );
   };
 
-  const ProductDetails = () => {
+  const renderProductDetails = () => {
     const cat = getVal(selectedProduct, 'Category');
     const kpay = (cat === 'Game' || cat === 'Digital product') 
       ? "09793655312 (Sai Khun Thet Hein)" 
       : "09402021942 (Hnin Pwint Phyu)";
 
     return (
-      <div className="flex flex-col h-full w-full bg-[#0a192f] overflow-hidden relative text-left">
-        <div className="relative h-[35vh] bg-[#112240] flex-shrink-0 border-b border-blue-900/30">
+      <div className="flex flex-col h-full w-full overflow-hidden relative text-left">
+        <div className="relative h-[35vh] min-h-[250px] bg-[#112240] flex-shrink-0 border-b border-blue-900/30">
           <img 
             src={formatImageUrl(getVal(selectedProduct, 'Link'))} 
             className="w-full h-full object-cover opacity-70" 
@@ -308,25 +310,27 @@ export default function App() {
     );
   };
 
-  // Outer Wrapper fixes the layout for ALL devices (Desktop, Tablet, Mobile)
-  // On desktop it looks like a floating phone. On mobile it takes full screen.
+  const renderOrderSuccess = () => (
+    <div className="h-full w-full flex flex-col items-center justify-center p-8 text-center overflow-hidden">
+      <div className="w-24 h-24 bg-green-500/10 text-green-500 rounded-full flex items-center justify-center mb-8 animate-bounce border border-green-500/20">
+        <CheckCircle2 size={50} />
+      </div>
+      <h2 className="text-3xl font-black text-white mb-3 tracking-tight">Order Placed!</h2>
+      <p className="text-slate-400 font-medium mb-10 text-sm max-w-xs leading-relaxed">အော်ဒါတင်ခြင်း အောင်မြင်ပါတယ်ရှင့်။ <br/> Admin မှ စစ်ဆေးပြီး ပစ္စည်းအား Telegram မှတစ်ဆင့် ပို့ဆောင်ပေးပါမည်။</p>
+      <button onClick={() => setView('home')} className="w-full max-w-xs bg-[#112240] border border-blue-900/50 text-blue-400 py-4.5 rounded-2xl font-black active:scale-95 transition-transform shadow-lg hover:bg-[#1a2d4f]">Back to Home</button>
+    </div>
+  );
+
+  // Outer Wrapper guarantees correct height on all devices.
+  // Using standard 'h-screen' instead of 'h-[100dvh]' prevents mobile browser layout crashes.
   return (
-    <div className="w-full min-h-screen bg-[#050d1a] flex justify-center items-center font-sans">
-      <div className="w-full max-w-md h-[100dvh] bg-[#0a192f] relative overflow-hidden shadow-[0_0_50px_rgba(0,0,0,0.5)] flex flex-col sm:h-[90vh] sm:rounded-[2.5rem] sm:border border-blue-900/40">
-        {view === 'welcome' && <WelcomeScreen />}
-        {view === 'home' && <HomeScreen />}
-        {view === 'products' && <ProductList />}
-        {view === 'details' && <ProductDetails />}
-        {view === 'order_success' && (
-          <div className="h-full w-full bg-[#0a192f] flex flex-col items-center justify-center p-8 text-center overflow-hidden">
-            <div className="w-24 h-24 bg-green-500/10 text-green-500 rounded-full flex items-center justify-center mb-8 animate-bounce border border-green-500/20">
-              <CheckCircle2 size={50} />
-            </div>
-            <h2 className="text-3xl font-black text-white mb-3 tracking-tight">Order Placed!</h2>
-            <p className="text-slate-400 font-medium mb-10 text-sm max-w-xs leading-relaxed">အော်ဒါတင်ခြင်း အောင်မြင်ပါတယ်ရှင့်။ <br/> Admin မှ စစ်ဆေးပြီး ပစ္စည်းအား Telegram မှတစ်ဆင့် ပို့ဆောင်ပေးပါမည်။</p>
-            <button onClick={() => setView('home')} className="w-full max-w-xs bg-[#112240] border border-blue-900/50 text-blue-400 py-4.5 rounded-2xl font-black active:scale-95 transition-transform shadow-lg hover:bg-[#1a2d4f]">Back to Home</button>
-          </div>
-        )}
+    <div className="w-full min-h-screen bg-[#050d1a] flex justify-center items-center font-sans text-white">
+      <div className="w-full max-w-md h-screen sm:h-[90vh] bg-[#0a192f] relative overflow-hidden flex flex-col sm:rounded-[2.5rem] sm:border border-blue-900/40 sm:shadow-[0_0_50px_rgba(0,0,0,0.5)]">
+        {view === 'welcome' && renderWelcomeScreen()}
+        {view === 'home' && renderHomeScreen()}
+        {view === 'products' && renderProductList()}
+        {view === 'details' && renderProductDetails()}
+        {view === 'order_success' && renderOrderSuccess()}
       </div>
     </div>
   );
