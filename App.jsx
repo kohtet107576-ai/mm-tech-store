@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 
 // --- CONFIGURATION ---
-// လူကြီးမင်း၏ Deploy လုပ်ပြီးသား Web App URL ကို အသင့်ထည့်သွင်းပေးထားပါသည်
+// လူကြီးမင်း၏ Google Apps Script Web App URL
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyC1MECq8ZNzdj-RxmBaMcFfSqVk9Ijt9uuRW-szeukWuCoNBhywDz0k7W1r5mCvjhR/exec"; 
 
 export default function App() {
@@ -24,17 +24,22 @@ export default function App() {
     { id: 'Gsm reseller', name: 'GSM Reseller', icon: <Settings size={20} /> }
   ];
 
-  // Google Drive Link ကို Browser တွင် ပုံပေါ်အောင် ပြောင်းပေးသည့် Function
+  // Google Drive Link ကို Browser တွင် တိုက်ရိုက်ပုံပေါ်အောင် ပြောင်းပေးသည့် Function
   const formatImageUrl = (url) => {
-    if (!url) return "https://placehold.co/400x200/112240/ffffff?text=MM+Tech";
+    if (!url || typeof url !== 'string') return "https://placehold.co/400x200/112240/ffffff?text=MM+Tech";
     if (url.includes('drive.google.com')) {
-      const id = url.split('id=')[1] || url.split('/d/')[1]?.split('/')[0];
-      return `https://drive.google.com/uc?export=view&id=${id}`;
+      let fileId = "";
+      if (url.includes('id=')) {
+        fileId = url.split('id=')[1].split('&')[0];
+      } else if (url.includes('/d/')) {
+        fileId = url.split('/d/')[1].split('/')[0];
+      }
+      return fileId ? `https://drive.google.com/uc?export=view&id=${fileId}` : url;
     }
     return url;
   };
 
-  // --- Data Fetching ---
+  // --- အချက်အလက်များကို Google Sheet မှ ဖတ်ယူခြင်း ---
   useEffect(() => {
     if (view === 'home' || view === 'products') {
       fetchData();
@@ -46,13 +51,11 @@ export default function App() {
     try {
       const res = await fetch(SCRIPT_URL);
       const data = await res.json();
-      if (Array.isArray(data)) setProducts(data);
+      if (Array.isArray(data)) {
+        setProducts(data);
+      }
     } catch (e) {
       console.error("Fetch Error:", e);
-      // URL မချိတ်ရသေးမီ Preview အတွက် ဒေတာအချို့
-      setProducts([
-        { ID: '1', Category: 'Game', Name: 'Demo Diamonds', Plan: '100 D', Price: '5000', Des: 'Connect Sheet to See Real Items', Link: '' }
-      ]);
     } finally {
       setLoading(false);
     }
@@ -66,7 +69,7 @@ export default function App() {
         body: JSON.stringify({
           productName: selectedProduct.Name + " (" + (selectedProduct.Plan || "") + ")",
           price: selectedProduct.Price,
-          fullName: "Web Customer"
+          fullName: "Web User"
         })
       });
       setView('order_success');
@@ -77,12 +80,13 @@ export default function App() {
     }
   };
 
-  // --- UI SUB-COMPONENTS ---
+  // --- UI COMPONENTS ---
 
   const WelcomeScreen = () => (
     <div className="flex flex-col h-[100dvh] bg-[#0a192f] p-8 text-center items-center justify-between overflow-hidden border-x border-blue-900/20">
-      <div className="flex flex-col items-center pt-10">
-        <div className="w-32 h-32 bg-[#112240] rounded-[2.5rem] flex items-center justify-center border border-blue-500/20 shadow-2xl mb-8 overflow-hidden">
+      {/* Logo နှင့် စာသားအပိုင်း */}
+      <div className="flex flex-col items-center pt-8">
+        <div className="w-32 h-32 bg-[#112240] rounded-[2.5rem] flex items-center justify-center border border-blue-500/20 shadow-[0_20px_50px_rgba(0,0,0,0.3)] mb-6 overflow-hidden">
           <img src="https://placehold.co/300x300/112240/ffffff?text=MM+TECH" alt="Logo" className="w-full h-full object-cover" />
         </div>
         <h1 className="text-3xl font-black text-white mb-2 tracking-tight">MM Tech မှ ကြိုဆိုပါတယ်ရှင့်</h1>
@@ -92,31 +96,34 @@ export default function App() {
         </p>
       </div>
 
-      <div className="w-full max-w-sm flex flex-col gap-5">
+      {/* Shopping နှင့် Promotion ခလုတ်များ */}
+      <div className="w-full max-w-sm flex flex-col items-center gap-5">
         <button 
           onClick={() => setView('home')}
-          className="w-full bg-blue-600 py-5 rounded-2xl font-black text-white shadow-xl active:scale-95 transition-all"
+          className="w-full bg-blue-600 hover:bg-blue-500 text-white py-5 rounded-2xl font-black shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3"
         >
-          🚀 Start Shopping
+          🚀 Start Shopping <ChevronRight size={20} />
         </button>
         <div className="flex items-center justify-center gap-2 text-slate-300 text-sm font-bold">
-          <Star size={16} className="text-yellow-500 fill-yellow-500" /> Promotion Info
+          <Star size={16} className="text-yellow-500 fill-yellow-500" /> MM Tech Grand Opening Promotion
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 w-full max-w-sm mb-10">
-        <a href="https://sonema.znnt.org/" target="_blank" rel="noreferrer" className="bg-[#112240] py-4 rounded-xl border border-blue-900/50 text-[10px] font-black text-blue-400 text-center uppercase tracking-widest active:scale-95 transition-transform">စုံ/မ စစ်ဆေးရန်</a>
-        <a href="http://www.ceir.gov.mm" target="_blank" rel="noreferrer" className="bg-[#112240] py-4 rounded-xl border border-blue-900/50 text-[10px] font-black text-blue-400 text-center uppercase tracking-widest active:scale-95 transition-transform">CEIR စစ်ဆေးရန်</a>
+      {/* အောက်ခြေ Link ခလုတ်များ */}
+      <div className="grid grid-cols-2 gap-4 w-full max-w-sm mb-6">
+        <a href="https://sonema.znnt.org/" target="_blank" rel="noreferrer" className="bg-[#112240] py-4 rounded-xl border border-blue-900/50 text-[10px] font-black text-blue-400 text-center uppercase tracking-widest active:scale-95">စုံ/မ စစ်ဆေးရန်</a>
+        <a href="http://www.ceir.gov.mm" target="_blank" rel="noreferrer" className="bg-[#112240] py-4 rounded-xl border border-blue-900/50 text-[10px] font-black text-blue-400 text-center uppercase tracking-widest active:scale-95">CEIR စစ်ဆေးရန်</a>
       </div>
     </div>
   );
 
   const HomeScreen = () => (
     <div className="flex flex-col h-[100dvh] bg-[#0a192f] overflow-hidden">
-      <div className="bg-[#112240] p-6 rounded-b-[2.5rem] shadow-xl border-b border-blue-900/30 flex-shrink-0">
+      {/* Header အပိုင်း */}
+      <div className="bg-[#112240] p-6 rounded-b-[2.5rem] shadow-xl border-b border-blue-900/30 flex-shrink-0 z-10 text-left">
         <div className="flex justify-between items-center mb-6 text-white text-left">
           <div>
-            <p className="text-blue-400 text-[10px] font-black uppercase tracking-widest">Premium Store</p>
+            <p className="text-blue-400 text-[10px] font-black uppercase tracking-widest text-left">Premium Store</p>
             <h2 className="text-2xl font-black">MM Tech Store</h2>
           </div>
           <button 
@@ -138,7 +145,8 @@ export default function App() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-6 pb-28">
+      {/* Scroll ဆွဲနိုင်သော ပစ္စည်းစာရင်းအပိုင်း */}
+      <div className="flex-1 overflow-y-auto px-6 py-8 pb-32 custom-scrollbar">
         <h3 className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-4 text-left">Categories</h3>
         <div className="grid grid-cols-2 gap-4 mb-10">
           {categories.map(c => (
@@ -160,12 +168,17 @@ export default function App() {
               <div 
                 key={p.ID || Math.random()} 
                 onClick={() => { setSelectedProduct(p); setView('details'); }}
-                className="bg-[#112240] p-4 rounded-3xl flex gap-4 border border-blue-900/20 active:scale-[0.98] transition-all text-left shadow-md"
+                className="bg-[#112240] p-4 rounded-3xl flex gap-4 border border-blue-900/20 active:scale-95 transition-all text-left shadow-md"
               >
                 <div className="w-16 h-16 bg-[#0a192f] rounded-2xl overflow-hidden flex-shrink-0 border border-blue-900/30">
-                    <img src={formatImageUrl(p.Link)} alt="" className="w-full h-full object-cover opacity-80" />
+                    <img 
+                      src={formatImageUrl(p.Link)} 
+                      alt="" 
+                      className="w-full h-full object-cover opacity-80"
+                      onError={(e) => { e.target.src = "https://placehold.co/100x100/112240/ffffff?text=Item"; }}
+                    />
                 </div>
-                <div className="flex flex-col justify-center flex-1">
+                <div className="flex flex-col justify-center flex-1 overflow-hidden">
                   <span className="text-[8px] text-blue-400 font-black uppercase mb-1">{p.Category}</span>
                   <h4 className="text-white text-sm font-bold truncate">{p.Name}</h4>
                   <span className="text-blue-500 font-black text-xs">{p.Price} Ks</span>
@@ -174,11 +187,14 @@ export default function App() {
               </div>
             ))
           ) : (
-            <div className="py-20 text-center text-slate-500 text-xs italic">Loading items from Google Sheet...</div>
+            <div className="py-20 text-center flex flex-col items-center gap-3 text-slate-500 text-xs italic">
+              {loading ? <Loader2 className="animate-spin" /> : "ပစ္စည်းစာရင်းများ မရှိသေးပါရှင်။"}
+            </div>
           )}
         </div>
       </div>
 
+      {/* အောက်ခြေ Navigation Menu */}
       <nav className="fixed bottom-0 left-0 right-0 bg-[#0a192f]/95 backdrop-blur-lg border-t border-blue-900/30 p-5 flex justify-around items-center z-50">
         <button onClick={() => setView('home')} className="text-blue-500"><ShoppingBag size={28} /></button>
         <button className="text-slate-600"><History size={28} /></button>
@@ -188,16 +204,16 @@ export default function App() {
   );
 
   return (
-    <div className="max-w-md mx-auto h-[100dvh] bg-[#0a192f] font-sans select-none overflow-hidden relative shadow-2xl">
+    <div className="max-w-md mx-auto h-[100dvh] bg-[#0a192f] font-sans select-none overflow-hidden relative shadow-2xl border-x border-blue-900/20">
       {view === 'welcome' && <WelcomeScreen />}
       {view === 'home' && <HomeScreen />}
       {view === 'products' && (
         <div className="flex flex-col h-full bg-[#0a192f]">
           <header className="p-6 flex items-center gap-4 bg-[#112240] border-b border-blue-900/30 shadow-lg text-white flex-shrink-0">
-            <button onClick={() => setView('home')} className="p-2 bg-[#0a192f] rounded-xl active:scale-90"><ArrowLeft size={20}/></button>
+            <button onClick={() => setView('home')} className="p-2 bg-[#0a192f] rounded-xl active:scale-90 transition-transform"><ArrowLeft size={20}/></button>
             <h2 className="text-xl font-black">{selectedCat}</h2>
           </header>
-          <div className="flex-1 overflow-y-auto p-6 space-y-4 pb-20">
+          <div className="flex-1 overflow-y-auto p-6 space-y-4 pb-24">
             {products.filter(p => p.Category === selectedCat).map(p => (
               <button 
                 key={p.ID || Math.random()} 
@@ -206,12 +222,17 @@ export default function App() {
               >
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 bg-[#0a192f] rounded-xl overflow-hidden border border-blue-900/30">
-                      <img src={formatImageUrl(p.Link)} alt="" className="w-full h-full object-cover" />
+                      <img 
+                        src={formatImageUrl(p.Link)} 
+                        alt="" 
+                        className="w-full h-full object-cover"
+                        onError={(e) => { e.target.src = "https://placehold.co/100x100/112240/ffffff?text=Item"; }}
+                      />
                   </div>
                   <div>
                     <h4 className="text-sm font-bold">{p.Name}</h4>
                     <p className="text-[10px] text-slate-400">{p.Plan}</p>
-                    <p className="text-xs text-blue-500 font-black mt-1">{p.Price} Ks</p>
+                    <p className="text-xs font-black text-blue-500 mt-1">{p.Price} Ks</p>
                   </div>
                 </div>
                 <ChevronRight size={18} className="text-slate-700" />
@@ -223,12 +244,17 @@ export default function App() {
       {view === 'details' && (
         <div className="flex flex-col h-full text-white bg-[#0a192f] overflow-hidden">
           <div className="relative h-[40vh] bg-[#112240] flex-shrink-0">
-            <img src={formatImageUrl(selectedProduct?.Link)} className="w-full h-full object-cover opacity-70" alt="" />
+            <img 
+              src={formatImageUrl(selectedProduct?.Link)} 
+              className="w-full h-full object-cover opacity-70" 
+              alt=""
+              onError={(e) => { e.target.src = "https://placehold.co/400x200/112240/ffffff?text=No+Preview"; }}
+            />
             <div className="absolute inset-0 bg-gradient-to-t from-[#0a192f] to-transparent"></div>
             <button onClick={() => setView('products')} className="absolute top-6 left-6 p-3 bg-white/10 backdrop-blur rounded-2xl active:scale-90"><ArrowLeft size={20}/></button>
           </div>
-          <div className="px-8 -mt-10 relative flex-1 flex flex-col overflow-hidden text-left">
-            <span className="px-4 py-1 bg-blue-600/20 text-blue-400 border border-blue-500/20 rounded-full text-[8px] font-black uppercase self-start mb-4">{selectedProduct?.Category}</span>
+          <div className="px-8 -mt-10 relative flex-1 flex flex-col text-left overflow-hidden">
+            <span className="px-4 py-1 bg-blue-600/20 text-blue-400 border border-blue-500/20 rounded-full text-[8px] font-black uppercase self-start mb-4 tracking-widest">{selectedProduct?.Category}</span>
             <h2 className="text-3xl font-black mb-1 leading-tight">{selectedProduct?.Name}</h2>
             <p className="text-slate-400 font-bold mb-1">{selectedProduct?.Plan}</p>
             <div className="text-2xl font-black text-blue-500 mb-6">{selectedProduct?.Price} Ks</div>
@@ -252,7 +278,7 @@ export default function App() {
         <div className="h-full flex flex-col items-center justify-center p-10 text-center text-white bg-[#0a192f]">
           <CheckCircle2 size={100} className="text-green-500 mb-6 animate-bounce" />
           <h2 className="text-3xl font-black mb-4">Successful!</h2>
-          <p className="text-slate-400 mb-10">အော်ဒါတင်ခြင်း အောင်မြင်ပါတယ်ရှင့်။ ပစ္စည်းအား Telegram မှတစ်ဆင့် ပို့ဆောင်ပေးပါမည်။</p>
+          <p className="text-slate-400 mb-10 text-sm">အော်ဒါတင်ခြင်း အောင်မြင်ပါတယ်ရှင့်။ ပစ္စည်းအား Telegram မှတစ်ဆင့် ပို့ဆောင်ပေးပါမည်။</p>
           <button onClick={() => setView('home')} className="w-full bg-[#112240] py-5 rounded-2xl font-black text-blue-400 active:scale-95">Back to Home</button>
         </div>
       )}
