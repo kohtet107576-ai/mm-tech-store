@@ -11,7 +11,6 @@ import {
   CheckCircle2,
   Gift,
   Search,
-  Phone,
   Loader2
 } from 'lucide-react';
 
@@ -36,20 +35,20 @@ export default function App() {
   // Sheet ထဲမှ Header နာမည်များကို Case-insensitive ဖတ်ရန်
   const getVal = (obj, key) => {
     if (!obj) return "";
-    return obj[key] || obj[key.toLowerCase()] || obj[key.charAt(0).toUpperCase() + key.slice(1)] || "";
+    return obj[key] || obj[key.toLowerCase()] || obj[key.toUpperCase()] || obj[key.charAt(0).toUpperCase() + key.slice(1)] || "";
   };
 
-  // Google Drive Link ကို Image ပေါ်အောင် ပြောင်းပေးသည့် Function
+  // Google Drive Link ကို Image ပေါ်အောင် ပြောင်းပေးသည့် ပိုမိုတိကျသော Function (Regex အသုံးပြုထားသည်)
   const formatImageUrl = (url) => {
     if (!url || typeof url !== 'string') return "https://placehold.co/400x300/e2e8f0/64748b?text=No+Image";
-    if (url.includes('drive.google.com')) {
-      let fileId = "";
-      try {
-        if (url.includes('id=')) fileId = url.split('id=')[1].split('&')[0];
-        else if (url.includes('/d/')) fileId = url.split('/d/')[1].split('/')[0];
-      } catch (e) { return url; }
-      return fileId ? `https://drive.google.com/uc?export=view&id=${fileId}` : url;
+    
+    // Google Drive URL များအတွက် ID ထုတ်ယူခြင်း
+    const match = url.match(/(?:https?:\/\/)?(?:drive\.google\.com\/(?:file\/d\/|open\?id=)|googledrive\.com\/host\/)([a-zA-Z0-9_-]+)/);
+    if (match && match[1]) {
+      return `https://drive.google.com/uc?export=view&id=${match[1]}`;
     }
+    
+    // Drive link မဟုတ်လျှင် (သို့) တိုက်ရိုက်ပုံ link ဆိုလျှင်
     return url;
   };
 
@@ -96,7 +95,7 @@ export default function App() {
   };
 
   const WelcomeScreen = () => (
-    <div className="flex flex-col h-[100dvh] bg-white text-center overflow-hidden">
+    <div className="flex flex-col h-full w-full bg-white text-center overflow-hidden">
       <div className="flex-1 flex flex-col items-center justify-center px-6">
         <div className="w-28 h-28 bg-blue-600 rounded-3xl flex items-center justify-center mb-8 shadow-2xl shadow-blue-200">
           <ShoppingBag size={56} color="white" />
@@ -116,7 +115,7 @@ export default function App() {
         </button>
       </div>
 
-      <div className="p-6 pb-8 bg-slate-50 border-t border-slate-100">
+      <div className="p-6 pb-8 bg-slate-50 border-t border-slate-100 mt-auto">
         <div className="grid grid-cols-2 gap-4 w-full max-w-sm mx-auto">
           <a href="https://sonema.znnt.org/" target="_blank" rel="noreferrer" className="bg-white py-4 rounded-xl border border-slate-200 flex flex-col items-center shadow-sm active:bg-slate-50">
             <span className="text-[11px] font-black text-slate-600 uppercase tracking-widest">စုံ/မ စစ်ဆေးရန်</span>
@@ -130,7 +129,7 @@ export default function App() {
   );
 
   const HomeScreen = () => (
-    <div className="flex flex-col h-[100dvh] bg-slate-50 overflow-hidden">
+    <div className="flex flex-col h-full w-full bg-slate-50 overflow-hidden relative">
       <div className="bg-white p-6 rounded-b-[2.5rem] shadow-sm flex-shrink-0 z-10 border-b border-slate-100">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-black text-slate-800">MM Tech Store</h2>
@@ -178,7 +177,12 @@ export default function App() {
               className="bg-white p-4 rounded-3xl shadow-sm flex gap-4 active:scale-95 transition-all cursor-pointer border border-transparent active:border-blue-100"
             >
               <div className="w-20 h-20 bg-slate-100 rounded-2xl overflow-hidden flex-shrink-0">
-                <img src={formatImageUrl(getVal(p, 'Link'))} alt="" className="w-full h-full object-cover" onError={(e) => e.target.src="https://placehold.co/100x100?text=Img"} />
+                <img 
+                  src={formatImageUrl(getVal(p, 'Link'))} 
+                  alt="" 
+                  className="w-full h-full object-cover" 
+                  onError={(e) => { e.target.onerror = null; e.target.src="https://placehold.co/100x100/e2e8f0/64748b?text=Img"; }} 
+                />
               </div>
               <div className="flex flex-col justify-center flex-grow overflow-hidden">
                 <span className="text-[9px] text-blue-500 font-black uppercase tracking-widest truncate">{getVal(p, 'Category')}</span>
@@ -197,7 +201,7 @@ export default function App() {
         </div>
       </div>
 
-      <nav className="fixed bottom-0 left-0 right-0 max-w-md w-full mx-auto bg-white/90 backdrop-blur-lg border-t border-slate-100 p-4 flex justify-around items-center shadow-[0_-10px_40px_rgba(0,0,0,0.05)] z-50">
+      <nav className="absolute bottom-0 left-0 right-0 w-full bg-white/90 backdrop-blur-lg border-t border-slate-100 p-4 flex justify-around items-center shadow-[0_-10px_40px_rgba(0,0,0,0.05)] z-50">
         <button onClick={() => setView('home')} className="text-blue-600 p-2 active:scale-90 transition-transform"><ShoppingBag size={28} /></button>
         <button className="text-slate-400 p-2 active:scale-90 transition-transform"><History size={28} /></button>
         <button onClick={() => setView('welcome')} className="text-slate-400 p-2 active:scale-90 transition-transform"><Settings size={28} /></button>
@@ -208,7 +212,7 @@ export default function App() {
   const ProductList = () => {
     const filtered = products.filter(p => getVal(p, 'Category') === selectedCat);
     return (
-      <div className="flex flex-col h-[100dvh] bg-slate-50 overflow-hidden">
+      <div className="flex flex-col h-full w-full bg-slate-50 overflow-hidden relative">
         <header className="p-6 flex items-center gap-4 bg-white shadow-sm flex-shrink-0 z-10 border-b border-slate-100">
           <button onClick={() => setView('home')} className="p-2 bg-slate-100 rounded-xl active:scale-90 transition-transform text-slate-600"><ArrowLeft size={20}/></button>
           <h2 className="text-xl font-black text-slate-800">{selectedCat}</h2>
@@ -222,7 +226,11 @@ export default function App() {
             >
               <div className="flex items-center gap-4 overflow-hidden w-full">
                 <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600 font-bold overflow-hidden flex-shrink-0">
-                   <img src={formatImageUrl(getVal(p, 'Link'))} className="w-full h-full object-cover" onError={(e) => e.target.src="https://placehold.co/100x100?text=Img"} />
+                   <img 
+                    src={formatImageUrl(getVal(p, 'Link'))} 
+                    className="w-full h-full object-cover" 
+                    onError={(e) => { e.target.onerror = null; e.target.src="https://placehold.co/100x100/e2e8f0/64748b?text=Img"; }} 
+                   />
                 </div>
                 <div className="overflow-hidden pr-2 flex-1">
                   <h4 className="font-bold text-slate-800 truncate text-md">{getVal(p, 'Name')}</h4>
@@ -247,13 +255,17 @@ export default function App() {
       : "09402021942 (Hnin Pwint Phyu)";
 
     return (
-      <div className="flex flex-col h-[100dvh] bg-white overflow-hidden">
+      <div className="flex flex-col h-full w-full bg-white overflow-hidden relative">
         <div className="relative h-[35vh] bg-slate-200 flex-shrink-0">
-          <img src={formatImageUrl(getVal(selectedProduct, 'Link'))} className="w-full h-full object-cover" onError={(e) => e.target.src="https://placehold.co/400x300"} />
+          <img 
+            src={formatImageUrl(getVal(selectedProduct, 'Link'))} 
+            className="w-full h-full object-cover" 
+            onError={(e) => { e.target.onerror = null; e.target.src="https://placehold.co/400x300/e2e8f0/64748b?text=No+Image"; }} 
+          />
           <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 to-transparent"></div>
           <button 
             onClick={() => setView('products')} 
-            className="absolute top-6 left-6 p-3 bg-white/90 backdrop-blur rounded-2xl shadow-lg active:scale-90 transition-transform text-slate-800"
+            className="absolute top-6 left-6 p-3 bg-white/90 backdrop-blur rounded-2xl shadow-lg active:scale-90 transition-transform text-slate-800 z-10"
           >
             <ArrowLeft size={20}/>
           </button>
@@ -301,22 +313,26 @@ export default function App() {
     );
   };
 
+  // Outer Wrapper fixes the black bars by filling the whole screen with a soft background, 
+  // and constraining the app container to mobile size (max-w-md) in the center.
   return (
-    <div className="max-w-md w-full mx-auto h-[100dvh] relative bg-slate-50 overflow-hidden shadow-2xl border-x border-slate-200 font-sans">
-      {view === 'welcome' && <WelcomeScreen />}
-      {view === 'home' && <HomeScreen />}
-      {view === 'products' && <ProductList />}
-      {view === 'details' && <ProductDetails />}
-      {view === 'order_success' && (
-        <div className="h-[100dvh] bg-white flex flex-col items-center justify-center p-8 text-center overflow-hidden">
-          <div className="w-24 h-24 bg-green-50 text-green-500 rounded-full flex items-center justify-center mb-8 animate-bounce">
-            <CheckCircle2 size={50} />
+    <div className="w-full min-h-screen bg-slate-100 flex justify-center items-center font-sans">
+      <div className="w-full max-w-md h-[100dvh] bg-slate-50 relative overflow-hidden shadow-2xl flex flex-col border-x border-slate-200">
+        {view === 'welcome' && <WelcomeScreen />}
+        {view === 'home' && <HomeScreen />}
+        {view === 'products' && <ProductList />}
+        {view === 'details' && <ProductDetails />}
+        {view === 'order_success' && (
+          <div className="h-full w-full bg-white flex flex-col items-center justify-center p-8 text-center overflow-hidden">
+            <div className="w-24 h-24 bg-green-50 text-green-500 rounded-full flex items-center justify-center mb-8 animate-bounce">
+              <CheckCircle2 size={50} />
+            </div>
+            <h2 className="text-3xl font-black text-slate-800 mb-3 tracking-tight">Order Placed!</h2>
+            <p className="text-slate-500 font-medium mb-10 text-sm max-w-xs leading-relaxed">အော်ဒါတင်ခြင်း အောင်မြင်ပါတယ်ရှင့်။ <br/> Admin မှ စစ်ဆေးပြီး ပစ္စည်းအား Telegram မှတစ်ဆင့် ပို့ဆောင်ပေးပါမည်။</p>
+            <button onClick={() => setView('home')} className="w-full max-w-xs bg-slate-100 text-slate-800 py-4.5 rounded-2xl font-black active:scale-95 transition-transform shadow-sm">Back to Home</button>
           </div>
-          <h2 className="text-3xl font-black text-slate-800 mb-3 tracking-tight">Order Placed!</h2>
-          <p className="text-slate-500 font-medium mb-10 text-sm max-w-xs leading-relaxed">အော်ဒါတင်ခြင်း အောင်မြင်ပါတယ်ရှင့်။ <br/> Admin မှ စစ်ဆေးပြီး ပစ္စည်းအား Telegram မှတစ်ဆင့် ပို့ဆောင်ပေးပါမည်။</p>
-          <button onClick={() => setView('home')} className="w-full max-w-xs bg-slate-100 text-slate-800 py-4.5 rounded-2xl font-black active:scale-95 transition-transform shadow-sm">Back to Home</button>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
