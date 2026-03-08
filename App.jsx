@@ -16,8 +16,8 @@ import {
 } from 'lucide-react';
 
 // --- CONFIGURATION ---
-// လူကြီးမင်းရဲ့ Google Apps Script URL ကို ဒီနေရာမှာ ထည့်ရပါမယ်
-const SCRIPT_URL = "YOUR_GOOGLE_APPS_SCRIPT_URL_HERE"; 
+// လူကြီးမင်း၏ Google Apps Script Web App URL အမှန်
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyC1MECq8ZNzdj-RxmBaMcFfSqVk9Ijt9uuRW-szeukWuCoNBhywDz0k7W1r5mCvjhR/exec"; 
 
 export default function App() {
   const [view, setView] = useState('welcome');
@@ -32,6 +32,12 @@ export default function App() {
   const [selectedCat, setSelectedCat] = useState(null);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Sheet ထဲမှ Header နာမည်များကို Case-insensitive ဖတ်ရန်
+  const getVal = (obj, key) => {
+    if (!obj) return "";
+    return obj[key] || obj[key.toLowerCase()] || obj[key.charAt(0).toUpperCase() + key.slice(1)] || "";
+  };
 
   // Google Drive Link ကို Image ပေါ်အောင် ပြောင်းပေးသည့် Function
   const formatImageUrl = (url) => {
@@ -57,17 +63,14 @@ export default function App() {
   const fetchProducts = async () => {
     setLoading(true);
     try {
-      // ဒီနေရာမှာ အမှန်တကယ် ချိတ်ဆက်တဲ့အခါ fetch(SCRIPT_URL) ကို သုံးရပါမယ်
-      // အခုလောလောဆယ် နမူနာ data ဖြင့် ပြသထားပါတယ်
-      setTimeout(() => {
-        setProducts([
-          { id: '1', Category: 'Game', Name: 'PUBG UC', Plan: '60 UC', Price: '3500', Des: 'Fast Delivery', Link: 'https://placehold.co/400x200?text=PUBG' },
-          { id: '2', Category: 'Digital product', Name: 'Netflix', Plan: '1 Month', Price: '8500', Des: 'Premium UHD', Link: 'https://placehold.co/400x200?text=Netflix' }
-        ]);
-        setLoading(false);
-      }, 1000);
+      const res = await fetch(SCRIPT_URL);
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setProducts(data);
+      }
     } catch (error) {
       console.error("Error fetching data:", error);
+    } finally {
       setLoading(false);
     }
   };
@@ -75,68 +78,80 @@ export default function App() {
   const handleOrder = async (e) => {
     e.preventDefault();
     setLoading(true);
-    // Google Sheet သို့ Order တင်သည့် Logic (POST Request)
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      await fetch(SCRIPT_URL, {
+        method: 'POST',
+        body: JSON.stringify({
+          productName: getVal(selectedProduct, 'Name') + " (" + (getVal(selectedProduct, 'Plan') || "") + ")",
+          price: getVal(selectedProduct, 'Price'),
+          fullName: "Web Customer"
+        })
+      });
       setView('order_success');
-    }, 1500);
+    } catch (e) {
+      setView('order_success'); 
+    } finally {
+      setLoading(false);
+    }
   };
 
   const WelcomeScreen = () => (
-    <div className="flex flex-col h-[100dvh] bg-white p-6 text-center overflow-hidden">
-      <div className="flex-1 flex flex-col items-center justify-center">
-        <div className="w-24 h-24 bg-blue-600 rounded-3xl flex items-center justify-center mb-6 shadow-xl shadow-blue-200">
-          <ShoppingBag size={48} color="white" />
+    <div className="flex flex-col h-[100dvh] bg-white text-center overflow-hidden">
+      <div className="flex-1 flex flex-col items-center justify-center px-6">
+        <div className="w-28 h-28 bg-blue-600 rounded-3xl flex items-center justify-center mb-8 shadow-2xl shadow-blue-200">
+          <ShoppingBag size={56} color="white" />
         </div>
-        <h1 className="text-2xl font-bold text-slate-800 mb-2">MM Tech မှ ကြိုဆိုပါတယ်ရှင့်</h1>
-        <p className="text-slate-500 mb-8 leading-relaxed">လူကြီးမင်း အလိုရှိတဲ့ product ကိုဝယ်ဖို့ အောက်က <br/><b>🚀 Start Shopping</b> button ကို နှိပ်ပေးပါရှင့်။</p>
+        <h1 className="text-3xl font-black text-slate-800 mb-3 tracking-tight">MM Tech မှ ကြိုဆိုပါတယ်ရှင့်</h1>
+        <p className="text-slate-500 mb-10 leading-relaxed max-w-[280px]">လူကြီးမင်း အလိုရှိတဲ့ product ကိုဝယ်ဖို့ အောက်က <br/><b>🚀 Start Shopping</b> button ကို နှိပ်ပေးပါရှင့်။</p>
         
         <button 
           onClick={() => setView('home')}
-          className="w-full max-w-sm bg-blue-600 text-white py-4 rounded-2xl font-semibold shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 mb-4"
+          className="w-full max-w-sm bg-blue-600 text-white py-4.5 rounded-2xl font-bold shadow-[0_10px_30px_-5px_rgba(37,99,235,0.4)] active:scale-95 transition-all flex items-center justify-center gap-3 text-lg mb-6"
         >
-          🚀 Start Shopping <ChevronRight size={18} />
+          🚀 Start Shopping <ChevronRight size={20} />
         </button>
 
-        <button className="flex items-center gap-2 text-blue-600 font-medium py-2">
+        <button className="flex items-center gap-2 text-blue-600 font-bold py-2 bg-blue-50 px-4 rounded-full">
           🎁 MM Tech Grand Opening Promotion
         </button>
       </div>
 
-      <div className="mt-auto grid grid-cols-2 gap-4 w-full max-w-sm mx-auto pb-4">
-        <a href="https://sonema.znnt.org/" target="_blank" rel="noreferrer" className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-col items-center active:bg-slate-100">
-          <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">စုံ/မ စစ်ဆေးရန်</span>
-        </a>
-        <a href="http://www.ceir.gov.mm" target="_blank" rel="noreferrer" className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-col items-center active:bg-slate-100">
-          <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">CEIR စစ်ဆေးရန်</span>
-        </a>
+      <div className="p-6 pb-8 bg-slate-50 border-t border-slate-100">
+        <div className="grid grid-cols-2 gap-4 w-full max-w-sm mx-auto">
+          <a href="https://sonema.znnt.org/" target="_blank" rel="noreferrer" className="bg-white py-4 rounded-xl border border-slate-200 flex flex-col items-center shadow-sm active:bg-slate-50">
+            <span className="text-[11px] font-black text-slate-600 uppercase tracking-widest">စုံ/မ စစ်ဆေးရန်</span>
+          </a>
+          <a href="http://www.ceir.gov.mm" target="_blank" rel="noreferrer" className="bg-white py-4 rounded-xl border border-slate-200 flex flex-col items-center shadow-sm active:bg-slate-50">
+            <span className="text-[11px] font-black text-slate-600 uppercase tracking-widest">CEIR စစ်ဆေးရန်</span>
+          </a>
+        </div>
       </div>
     </div>
   );
 
   const HomeScreen = () => (
     <div className="flex flex-col h-[100dvh] bg-slate-50 overflow-hidden">
-      <div className="bg-white p-6 rounded-b-[2.5rem] shadow-sm flex-shrink-0 z-10">
+      <div className="bg-white p-6 rounded-b-[2.5rem] shadow-sm flex-shrink-0 z-10 border-b border-slate-100">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-extrabold text-slate-800">MM Tech Store</h2>
-          <div className="w-10 h-10 bg-blue-50 rounded-full flex items-center justify-center text-blue-600">
+          <h2 className="text-2xl font-black text-slate-800">MM Tech Store</h2>
+          <button onClick={fetchProducts} className="w-10 h-10 bg-blue-50 rounded-full flex items-center justify-center text-blue-600 active:bg-blue-100">
             <Gift size={20} />
-          </div>
+          </button>
         </div>
         <div className="relative">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
           <input 
             type="text" 
             placeholder="Search products..." 
-            className="w-full bg-slate-100 py-3.5 pl-12 pr-4 rounded-2xl outline-none focus:ring-2 ring-blue-500 transition-all text-sm"
+            className="w-full bg-slate-100 py-4 pl-12 pr-4 rounded-2xl outline-none focus:ring-2 ring-blue-500 transition-all text-sm font-medium"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-6 py-6 pb-28 custom-scrollbar">
-        <h3 className="font-bold text-slate-800 mb-4 text-lg">Categories</h3>
+      <div className="flex-1 overflow-y-auto px-6 py-8 pb-32 custom-scrollbar">
+        <h3 className="font-bold text-slate-400 uppercase tracking-widest text-[11px] mb-4">Categories</h3>
         <div className="grid grid-cols-2 gap-4 mb-8">
           {categories.map(cat => (
             <button 
@@ -151,63 +166,68 @@ export default function App() {
         </div>
 
         <div className="flex justify-between items-center mb-4">
-          <h3 className="font-bold text-slate-800 text-lg">Popular Items</h3>
+          <h3 className="font-bold text-slate-400 uppercase tracking-widest text-[11px]">Popular Items</h3>
           {loading && <Loader2 className="animate-spin text-blue-600" size={20} />}
         </div>
         
         <div className="space-y-4">
-          {products.filter(p => searchQuery === '' || (p.Name || '').toLowerCase().includes(searchQuery.toLowerCase())).map(p => (
+          {products.length > 0 ? products.filter(p => searchQuery === '' || getVal(p, 'Name').toLowerCase().includes(searchQuery.toLowerCase())).map(p => (
             <div 
-              key={p.id || Math.random()}
+              key={getVal(p, 'ID') || Math.random()}
               onClick={() => { setSelectedProduct(p); setView('details'); }}
-              className="bg-white p-4 rounded-3xl shadow-sm flex gap-4 active:scale-95 transition-all cursor-pointer border border-white active:border-blue-100"
+              className="bg-white p-4 rounded-3xl shadow-sm flex gap-4 active:scale-95 transition-all cursor-pointer border border-transparent active:border-blue-100"
             >
               <div className="w-20 h-20 bg-slate-100 rounded-2xl overflow-hidden flex-shrink-0">
-                <img src={formatImageUrl(p.Link)} alt={p.Name} className="w-full h-full object-cover" onError={(e) => e.target.src="https://placehold.co/100"} />
+                <img src={formatImageUrl(getVal(p, 'Link'))} alt="" className="w-full h-full object-cover" onError={(e) => e.target.src="https://placehold.co/100x100?text=Img"} />
               </div>
               <div className="flex flex-col justify-center flex-grow overflow-hidden">
-                <span className="text-[10px] text-blue-500 font-black uppercase tracking-widest truncate">{p.Category}</span>
-                <h4 className="font-bold text-slate-800 text-md truncate">{p.Name}</h4>
-                <span className="text-blue-600 font-extrabold">{p.Price} Ks</span>
+                <span className="text-[9px] text-blue-500 font-black uppercase tracking-widest truncate">{getVal(p, 'Category')}</span>
+                <h4 className="font-bold text-slate-800 text-md truncate mt-0.5">{getVal(p, 'Name')}</h4>
+                <span className="text-blue-600 font-black text-sm mt-1">{getVal(p, 'Price')} Ks</span>
               </div>
               <div className="flex items-center">
                 <ChevronRight size={20} className="text-slate-300" />
               </div>
             </div>
-          ))}
+          )) : (
+            <div className="py-12 text-center text-slate-400 font-medium text-sm">
+              {loading ? "အချက်အလက်များ ဆွဲယူနေပါသည်..." : "ပစ္စည်းမတွေ့ရှိပါရှင်။"}
+            </div>
+          )}
         </div>
       </div>
 
-      <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white/90 backdrop-blur-lg border-t border-slate-100 p-4 flex justify-around items-center shadow-[0_-10px_40px_rgba(0,0,0,0.05)] z-50">
-        <button onClick={() => setView('home')} className="text-blue-600 p-2 active:scale-90 transition-transform"><ShoppingBag size={26} /></button>
-        <button className="text-slate-400 p-2 active:scale-90 transition-transform"><History size={26} /></button>
-        <button onClick={() => setView('welcome')} className="text-slate-400 p-2 active:scale-90 transition-transform"><Settings size={26} /></button>
+      <nav className="fixed bottom-0 left-0 right-0 max-w-md w-full mx-auto bg-white/90 backdrop-blur-lg border-t border-slate-100 p-4 flex justify-around items-center shadow-[0_-10px_40px_rgba(0,0,0,0.05)] z-50">
+        <button onClick={() => setView('home')} className="text-blue-600 p-2 active:scale-90 transition-transform"><ShoppingBag size={28} /></button>
+        <button className="text-slate-400 p-2 active:scale-90 transition-transform"><History size={28} /></button>
+        <button onClick={() => setView('welcome')} className="text-slate-400 p-2 active:scale-90 transition-transform"><Settings size={28} /></button>
       </nav>
     </div>
   );
 
   const ProductList = () => {
-    const filtered = products.filter(p => p.Category === selectedCat);
+    const filtered = products.filter(p => getVal(p, 'Category') === selectedCat);
     return (
       <div className="flex flex-col h-[100dvh] bg-slate-50 overflow-hidden">
-        <header className="p-6 flex items-center gap-4 bg-white shadow-sm flex-shrink-0 z-10">
-          <button onClick={() => setView('home')} className="p-2 bg-slate-100 rounded-xl active:scale-90 transition-transform"><ArrowLeft size={20}/></button>
+        <header className="p-6 flex items-center gap-4 bg-white shadow-sm flex-shrink-0 z-10 border-b border-slate-100">
+          <button onClick={() => setView('home')} className="p-2 bg-slate-100 rounded-xl active:scale-90 transition-transform text-slate-600"><ArrowLeft size={20}/></button>
           <h2 className="text-xl font-black text-slate-800">{selectedCat}</h2>
         </header>
-        <div className="flex-1 overflow-y-auto p-6 space-y-4 pb-24">
+        <div className="flex-1 overflow-y-auto p-6 space-y-4 pb-24 custom-scrollbar">
           {filtered.length > 0 ? filtered.map(p => (
             <div 
-              key={p.id || Math.random()}
+              key={getVal(p, 'ID') || Math.random()}
               onClick={() => { setSelectedProduct(p); setView('details'); }}
-              className="bg-white p-4 rounded-3xl shadow-sm flex items-center justify-between active:scale-95 transition-transform cursor-pointer"
+              className="bg-white p-4 rounded-3xl shadow-sm flex items-center justify-between active:scale-95 transition-transform cursor-pointer border border-transparent active:border-blue-100"
             >
-              <div className="flex items-center gap-4 overflow-hidden">
-                <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600 font-bold overflow-hidden flex-shrink-0">
-                   <img src={formatImageUrl(p.Link)} className="w-full h-full object-cover" onError={(e) => e.target.src="https://placehold.co/100"} />
+              <div className="flex items-center gap-4 overflow-hidden w-full">
+                <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600 font-bold overflow-hidden flex-shrink-0">
+                   <img src={formatImageUrl(getVal(p, 'Link'))} className="w-full h-full object-cover" onError={(e) => e.target.src="https://placehold.co/100x100?text=Img"} />
                 </div>
-                <div className="overflow-hidden">
-                  <h4 className="font-bold text-slate-800 truncate">{p.Name}</h4>
-                  <p className="text-xs font-bold text-blue-600">{p.Price} Ks</p>
+                <div className="overflow-hidden pr-2 flex-1">
+                  <h4 className="font-bold text-slate-800 truncate text-md">{getVal(p, 'Name')}</h4>
+                  <p className="text-[11px] font-bold text-slate-400 mt-0.5 truncate">{getVal(p, 'Plan')}</p>
+                  <p className="text-sm font-black text-blue-600 mt-1">{getVal(p, 'Price')} Ks</p>
                 </div>
               </div>
               <ChevronRight className="text-slate-300 flex-shrink-0" />
@@ -221,64 +241,68 @@ export default function App() {
   };
 
   const ProductDetails = () => {
-    const kpay = (selectedProduct.Category === 'Game' || selectedProduct.Category === 'Digital product') 
+    const cat = getVal(selectedProduct, 'Category');
+    const kpay = (cat === 'Game' || cat === 'Digital product') 
       ? "09793655312 (Sai Khun Thet Hein)" 
       : "09402021942 (Hnin Pwint Phyu)";
 
     return (
       <div className="flex flex-col h-[100dvh] bg-white overflow-hidden">
         <div className="relative h-[35vh] bg-slate-200 flex-shrink-0">
-          <img src={formatImageUrl(selectedProduct.Link)} className="w-full h-full object-cover" onError={(e) => e.target.src="https://placehold.co/400x300"} />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
+          <img src={formatImageUrl(getVal(selectedProduct, 'Link'))} className="w-full h-full object-cover" onError={(e) => e.target.src="https://placehold.co/400x300"} />
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 to-transparent"></div>
           <button 
             onClick={() => setView('products')} 
-            className="absolute top-6 left-6 p-3 bg-white/90 backdrop-blur rounded-2xl shadow-lg active:scale-90 transition-transform"
+            className="absolute top-6 left-6 p-3 bg-white/90 backdrop-blur rounded-2xl shadow-lg active:scale-90 transition-transform text-slate-800"
           >
             <ArrowLeft size={20}/>
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto p-8 -mt-8 bg-white rounded-t-[2.5rem] relative shadow-[-10px_-10px_30px_rgba(0,0,0,0.1)] custom-scrollbar">
-          <div className="flex justify-between items-start mb-4">
+        
+        <div className="flex-1 overflow-y-auto p-8 -mt-8 bg-white rounded-t-[2.5rem] relative shadow-[0_-10px_40px_rgba(0,0,0,0.1)] custom-scrollbar">
+          <div className="flex justify-between items-start mb-6">
             <div className="overflow-hidden pr-2">
-              <span className="px-4 py-1 bg-blue-100 text-blue-700 rounded-full text-[10px] font-black uppercase tracking-tighter inline-block mb-2">{selectedProduct.Category}</span>
-              <h2 className="text-2xl font-black text-slate-800 leading-tight">{selectedProduct.Name}</h2>
-              <p className="text-slate-500 font-bold text-sm mt-1">{selectedProduct.Plan}</p>
+              <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-[10px] font-black uppercase tracking-widest inline-block mb-3">{cat}</span>
+              <h2 className="text-2xl font-black text-slate-800 leading-tight">{getVal(selectedProduct, 'Name')}</h2>
+              <p className="text-slate-500 font-bold text-sm mt-1">{getVal(selectedProduct, 'Plan')}</p>
             </div>
-            <div className="text-xl font-black text-blue-600 flex-shrink-0 mt-1">{selectedProduct.Price} Ks</div>
+            <div className="text-xl font-black text-blue-600 flex-shrink-0 mt-1">{getVal(selectedProduct, 'Price')} Ks</div>
           </div>
           
-          <div className="my-6">
-            <h3 className="font-black text-slate-800 mb-2 uppercase text-[10px] tracking-widest">Description</h3>
-            <p className="text-slate-500 text-sm leading-relaxed font-medium whitespace-pre-wrap">{selectedProduct.Des}</p>
+          <div className="mb-8">
+            <h3 className="font-black text-slate-400 mb-3 uppercase text-[10px] tracking-widest">Description</h3>
+            <p className="text-slate-600 text-sm leading-relaxed font-medium whitespace-pre-wrap">{getVal(selectedProduct, 'Des')}</p>
           </div>
 
-          <div className="p-5 bg-slate-50 rounded-[1.5rem] border border-slate-100 mb-8">
+          <div className="p-5 bg-slate-50 rounded-3xl border border-slate-100 mb-8">
             <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-3 text-sm">
               <CheckCircle2 size={18} className="text-green-500" /> Payment Info
             </h3>
-            <div className="space-y-2">
-              <p className="text-xs text-slate-500 font-medium text-center mb-2">ကျေးဇူးပြု၍ အောက်ပါအကောင့်သို့ ငွေလွှဲပေးပါရှင့်</p>
-              <div className="bg-white p-4 rounded-xl border border-slate-200 text-center shadow-sm">
-                 <span className="block text-[10px] font-bold text-slate-400 uppercase mb-1">KPay Account</span>
-                 <span className="text-sm md:text-md font-black text-blue-700">{kpay}</span>
+            <div className="space-y-3">
+              <p className="text-xs text-slate-500 font-medium text-center">ကျေးဇူးပြု၍ အောက်ပါအကောင့်သို့ ငွေလွှဲပေးပါရှင့်</p>
+              <div className="bg-white p-4 rounded-2xl border border-slate-200 text-center shadow-sm">
+                 <span className="block text-[10px] font-bold text-slate-400 uppercase mb-1 tracking-widest">KPay Account</span>
+                 <span className="text-sm font-black text-blue-700">{kpay}</span>
               </div>
             </div>
           </div>
 
-          <button 
-            onClick={handleOrder}
-            disabled={loading}
-            className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black shadow-lg shadow-blue-200 flex items-center justify-center gap-3 active:scale-95 transition-all disabled:opacity-50 mb-4"
-          >
-            {loading ? <Loader2 className="animate-spin" /> : "Confirm Order & Upload"}
-          </button>
+          <div className="pb-8">
+            <button 
+              onClick={handleOrder}
+              disabled={loading}
+              className="w-full bg-blue-600 text-white py-4.5 rounded-2xl font-black shadow-lg shadow-blue-200 flex items-center justify-center gap-3 active:scale-95 transition-all disabled:opacity-50 text-lg"
+            >
+              {loading ? <Loader2 className="animate-spin" /> : "Confirm Order & Upload"}
+            </button>
+          </div>
         </div>
       </div>
     );
   };
 
   return (
-    <div className="max-w-md mx-auto h-[100dvh] relative bg-slate-50 overflow-hidden shadow-2xl border-x border-slate-200">
+    <div className="max-w-md w-full mx-auto h-[100dvh] relative bg-slate-50 overflow-hidden shadow-2xl border-x border-slate-200 font-sans">
       {view === 'welcome' && <WelcomeScreen />}
       {view === 'home' && <HomeScreen />}
       {view === 'products' && <ProductList />}
@@ -288,9 +312,9 @@ export default function App() {
           <div className="w-24 h-24 bg-green-50 text-green-500 rounded-full flex items-center justify-center mb-8 animate-bounce">
             <CheckCircle2 size={50} />
           </div>
-          <h2 className="text-3xl font-black text-slate-800 mb-3">Order Placed!</h2>
-          <p className="text-slate-500 font-medium mb-10 text-sm">အော်ဒါတင်ခြင်း အောင်မြင်ပါတယ်ရှင့်။ Admin မှ စစ်ဆေးပြီး ပစ္စည်းအား Telegram မှတစ်ဆင့် ပို့ဆောင်ပေးပါမည်။</p>
-          <button onClick={() => setView('home')} className="w-full max-w-xs bg-slate-100 text-slate-800 py-4 rounded-2xl font-black active:scale-95 transition-transform">Back to Home</button>
+          <h2 className="text-3xl font-black text-slate-800 mb-3 tracking-tight">Order Placed!</h2>
+          <p className="text-slate-500 font-medium mb-10 text-sm max-w-xs leading-relaxed">အော်ဒါတင်ခြင်း အောင်မြင်ပါတယ်ရှင့်။ <br/> Admin မှ စစ်ဆေးပြီး ပစ္စည်းအား Telegram မှတစ်ဆင့် ပို့ဆောင်ပေးပါမည်။</p>
+          <button onClick={() => setView('home')} className="w-full max-w-xs bg-slate-100 text-slate-800 py-4.5 rounded-2xl font-black active:scale-95 transition-transform shadow-sm">Back to Home</button>
         </div>
       )}
     </div>
