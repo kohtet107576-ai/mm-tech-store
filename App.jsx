@@ -24,12 +24,12 @@ export default function App() {
     { id: 'Gsm reseller', name: 'GSM Reseller', icon: <Settings size={20} /> }
   ];
 
-  // --- အလုပ်အသေအချာလုပ်သော Image Link Converter ---
+  // --- IMAGE URL CONVERTER (Robust Version) ---
   const formatImageUrl = (url) => {
     if (!url || typeof url !== 'string') return "https://placehold.co/400x300/112240/ffffff?text=MM+Tech";
     
-    // Google Drive URL ထဲက ID ကို ရှာဖွေခြင်း
-    const driveRegex = /(?:https?:\/\/)?(?:drive\.google\.com\/(?:file\/d\/|open\?id=)|googledrive\.com\/host\/)([a-zA-Z0-9_-]{25,})/;
+    // Google Drive Link format များမှ ID ကို တိကျစွာ ထုတ်ယူခြင်း
+    const driveRegex = /(?:https?:\/\/)?(?:drive\.google\.com\/(?:file\/d\/|open\?id=)|googledrive\.com\/host\/|docs\.google\.com\/spreadsheets\/d\/)([a-zA-Z0-9_-]{25,})/;
     const match = url.match(driveRegex);
     
     if (match && match[1]) {
@@ -38,10 +38,10 @@ export default function App() {
     return url;
   };
 
-  // Data mapping ကို ပိုမိုလွယ်ကူစေရန် Helper
+  // Data mapping helper (Case-insensitive)
   const getVal = (obj, key) => {
     if (!obj) return "";
-    const foundKey = Object.keys(obj).find(k => k.toLowerCase() === key.toLowerCase());
+    const foundKey = Object.keys(obj).find(k => k.toLowerCase().trim() === key.toLowerCase());
     return foundKey ? obj[foundKey] : "";
   };
 
@@ -58,7 +58,7 @@ export default function App() {
       const res = await fetch(SCRIPT_URL);
       const data = await res.json();
       if (Array.isArray(data)) {
-        // Data များကို Component ထဲတွင် သုံးရလွယ်အောင် ပုံမှန် Format ပြောင်းခြင်း
+        // Data Format ကို အသေချာဆုံးဖြစ်အောင် Normalize လုပ်ခြင်း
         const normalized = data.map(item => ({
           id: getVal(item, 'ID'),
           category: getVal(item, 'Category'),
@@ -72,10 +72,9 @@ export default function App() {
       }
     } catch (e) {
       console.error("Fetch Error:", e);
-      // fallback for preview only
       if (products.length === 0) {
         setProducts([
-          { id: '1', category: 'Game', name: 'Demo Product', plan: 'Trial', price: '0', des: 'Please check your internet or Vercel build.', link: '' }
+          { id: '1', category: 'Game', name: 'Sample Item', plan: 'Trial', price: '0', des: 'Please check your connection.', link: '' }
         ]);
       }
     } finally {
@@ -102,43 +101,44 @@ export default function App() {
     }
   };
 
-  // --- WELCOME SCREEN (SCREENSHOT 1 အတိုင်း တိကျစွာ ပြင်ဆင်ထားသည်) ---
+  // --- UI SUB-COMPONENTS ---
+
   const WelcomeScreen = () => (
     <div className="flex flex-col h-[100dvh] bg-[#0a192f] overflow-hidden">
-      <div className="flex flex-col items-center justify-between h-full py-12 px-8">
+      <div className="flex flex-col items-center justify-between h-full py-10 px-8 border-x border-blue-900/20">
         
-        {/* Top Logo Section */}
-        <div className="flex flex-col items-center animate-in fade-in zoom-in duration-1000">
-          <div className="w-32 h-32 bg-[#112240] rounded-[2.5rem] flex items-center justify-center border border-blue-500/20 shadow-2xl mb-8 overflow-hidden">
+        {/* Top Section */}
+        <div className="flex flex-col items-center pt-6 animate-in fade-in zoom-in duration-1000">
+          <div className="w-32 h-32 bg-[#112240] rounded-[2.5rem] flex items-center justify-center border border-blue-500/20 shadow-2xl mb-6 overflow-hidden">
             <img src="https://placehold.co/300x300/112240/ffffff?text=MM+TECH" alt="Logo" className="w-full h-full object-cover" />
           </div>
-          <h1 className="text-4xl font-black text-white mb-3 tracking-tight">MM Tech</h1>
+          <h1 className="text-3xl font-black text-white mb-2 tracking-tight">MM Tech</h1>
           <p className="text-slate-400 text-sm leading-relaxed max-w-[280px] text-center">
             လူကြီးမင်း အလိုရှိတဲ့ product ကိုဝယ်ဖို့ အောက်က <br/>
             <span className="text-blue-400 font-bold">🚀 Start Shopping</span> button ကို နှိပ်ပေးပါရှင့်။
           </p>
         </div>
 
-        {/* Middle Button Section */}
+        {/* Middle Section */}
         <div className="w-full max-w-sm flex flex-col items-center gap-6">
           <button 
             onClick={() => setView('home')}
-            className="w-full bg-blue-600 hover:bg-blue-500 text-white py-5 rounded-2xl font-black shadow-[0_15px_30px_-10px_rgba(37,99,235,0.6)] active:scale-95 transition-all flex items-center justify-center gap-3 text-lg"
+            className="w-full bg-blue-600 hover:bg-blue-500 text-white py-4.5 rounded-2xl font-black shadow-[0_15px_30px_-5px_rgba(37,99,235,0.4)] active:scale-95 transition-all flex items-center justify-center gap-3 text-lg"
           >
             🚀 Start Shopping <ChevronRight size={22} />
           </button>
           
-          <button className="flex items-center justify-center gap-2 text-slate-300 text-sm font-bold opacity-80 hover:opacity-100">
+          <button className="flex items-center justify-center gap-2 text-slate-300 text-sm font-bold opacity-80">
             <Star size={18} className="text-yellow-500 fill-yellow-500" /> Promotion Info
           </button>
         </div>
 
-        {/* Bottom Link Section */}
-        <div className="grid grid-cols-2 gap-4 w-full max-w-sm">
-          <a href="https://sonema.znnt.org/" target="_blank" rel="noreferrer" className="bg-[#112240] py-4 rounded-2xl border border-blue-900/50 text-[10px] font-black text-blue-400 text-center uppercase tracking-widest active:bg-blue-900/40 shadow-lg">
+        {/* Bottom Section */}
+        <div className="grid grid-cols-2 gap-4 w-full max-w-sm mb-4">
+          <a href="https://sonema.znnt.org/" target="_blank" rel="noreferrer" className="bg-[#112240] py-4 rounded-xl border border-blue-900/50 text-[10px] font-black text-blue-400 text-center uppercase tracking-widest active:scale-95 shadow-lg">
             စုံ/မ စစ်ဆေးရန်
           </a>
-          <a href="http://www.ceir.gov.mm" target="_blank" rel="noreferrer" className="bg-[#112240] py-4 rounded-2xl border border-blue-900/50 text-[10px] font-black text-blue-400 text-center uppercase tracking-widest active:bg-blue-900/40 shadow-lg">
+          <a href="http://www.ceir.gov.mm" target="_blank" rel="noreferrer" className="bg-[#112240] py-4 rounded-xl border border-blue-900/50 text-[10px] font-black text-blue-400 text-center uppercase tracking-widest active:scale-95 shadow-lg">
             CEIR စစ်ဆေးရန်
           </a>
         </div>
@@ -147,12 +147,11 @@ export default function App() {
     </div>
   );
 
-  // --- HOME SCREEN ---
   const HomeScreen = () => (
     <div className="flex flex-col h-[100dvh] bg-[#0a192f] overflow-hidden text-left">
       <div className="bg-[#112240] p-6 rounded-b-[2.5rem] shadow-xl border-b border-blue-900/30 flex-shrink-0 z-10">
         <div className="flex justify-between items-center mb-6">
-          <div>
+          <div className="text-left">
             <p className="text-blue-400 text-[10px] font-black uppercase tracking-widest">Premium Store</p>
             <h2 className="text-2xl font-black text-white">MM Tech Store</h2>
           </div>
@@ -173,7 +172,7 @@ export default function App() {
       </div>
 
       <div className="flex-1 overflow-y-auto px-6 py-8 pb-32 custom-scrollbar">
-        <h3 className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-4">Categories</h3>
+        <h3 className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-4 text-left">Categories</h3>
         <div className="grid grid-cols-2 gap-4 mb-10">
           {categories.map(c => (
             <button 
@@ -187,14 +186,14 @@ export default function App() {
           ))}
         </div>
 
-        <h3 className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-4">Popular Items</h3>
+        <h3 className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-4 text-left">Popular Items</h3>
         <div className="space-y-4">
           {products.length > 0 ? (
             products.filter(p => searchQuery === '' || p.name?.toLowerCase().includes(searchQuery.toLowerCase())).map(p => (
               <div 
                 key={p.id || Math.random()} 
                 onClick={() => { setSelectedProduct(p); setView('details'); }}
-                className="bg-[#112240] p-4 rounded-3xl flex gap-4 border border-blue-900/20 active:scale-[0.98] transition-all shadow-md"
+                className="bg-[#112240] p-4 rounded-3xl flex gap-4 border border-blue-900/20 active:scale-[0.98] transition-all text-left shadow-md"
               >
                 <div className="w-16 h-16 bg-[#0a192f] rounded-2xl overflow-hidden flex-shrink-0 border border-blue-900/30">
                     <img src={formatImageUrl(p.link)} alt="" className="w-full h-full object-cover opacity-80" onError={(e) => { e.target.src = "https://placehold.co/100?text=Item"; }} />
@@ -238,7 +237,7 @@ export default function App() {
               <button 
                 key={p.id || Math.random()} 
                 onClick={() => { setSelectedProduct(p); setView('details'); }}
-                className="w-full bg-[#112240] p-5 rounded-3xl flex items-center justify-between text-white border border-blue-900/20 active:bg-blue-900/40 transition-all shadow-lg"
+                className="w-full bg-[#112240] p-5 rounded-3xl flex items-center justify-between text-white border border-blue-900/20 active:bg-blue-900/40 transition-all text-left shadow-lg"
               >
                 <div className="flex items-center gap-4 overflow-hidden">
                   <div className="w-12 h-12 bg-[#0a192f] rounded-xl overflow-hidden border border-blue-900/30 flex-shrink-0">
