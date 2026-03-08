@@ -32,6 +32,7 @@ export default function App() {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Fetch Products Simulation
   useEffect(() => {
     if (view === 'home' && products.length === 0) {
       fetchProducts();
@@ -48,7 +49,7 @@ export default function App() {
           { id: '3', Category: 'Online class', Name: 'Graphic Design', Plan: 'Beginner to Pro', Price: '25000', Des: 'Photoshop & Illustrator included.', Link: 'https://placehold.co/400x200/001f3f/ffffff?text=Graphic+Design' }
         ]);
         setLoading(false);
-      }, 800);
+      }, 500);
     } catch (error) {
       setLoading(false);
     }
@@ -59,44 +60,46 @@ export default function App() {
     setTimeout(() => {
       setLoading(false);
       setView('order_success');
-    }, 1500);
+    }, 1000);
   };
 
+  // --- UI COMPONENTS ---
+
   const WelcomeScreen = () => (
-    <div className="flex flex-col h-[100dvh] bg-[#0a192f] p-8 text-center justify-between items-center overflow-hidden">
-      {/* Top Logo Section - Logo space ကို fixed ပေးထားပါတယ် */}
-      <div className="flex flex-col items-center pt-10">
-        <div className="w-36 h-36 bg-[#112240] rounded-[2.5rem] flex items-center justify-center border border-blue-500/30 shadow-[0_20px_50px_rgba(0,0,0,0.3)] mb-8 overflow-hidden">
-          <img src="https://placehold.co/200x200/001f3f/3b82f6?text=MM+TECH" alt="MM Tech Logo" className="w-full h-full object-cover" />
+    <div className="flex flex-col min-h-screen bg-[#0a192f] p-8 text-center items-center justify-between">
+      {/* Top Logo Section */}
+      <div className="flex flex-col items-center mt-6">
+        <div className="w-32 h-32 bg-[#112240] rounded-[2.5rem] flex items-center justify-center border border-blue-500/30 shadow-2xl mb-6 overflow-hidden">
+          <img src="https://placehold.co/300x300/112240/ffffff?text=MM+TECH" alt="MM Tech Logo" className="w-full h-full object-cover" />
         </div>
-        <h1 className="text-4xl font-black text-white mb-3 tracking-tight">MM Tech မှ ကြိုဆိုပါတယ်ရှင့်</h1>
+        <h1 className="text-3xl font-black text-white mb-2 tracking-tight">MM Tech မှ ကြိုဆိုပါတယ်ရှင့်</h1>
         <p className="text-slate-400 text-sm leading-relaxed max-w-[280px]">
           လူကြီးမင်း အလိုရှိတဲ့ product ကိုဝယ်ဖို့ အောက်က <br/>
           <span className="text-blue-400 font-bold">🚀 Start Shopping</span> button ကို နှိပ်ပေးပါရှင့်။
         </p>
       </div>
 
-      {/* Middle Buttons Section - အလယ်မှာ နေရာယူစေပါတယ် */}
-      <div className="w-full max-w-sm flex flex-col items-center gap-4">
+      {/* Middle Action Section */}
+      <div className="w-full max-w-sm flex flex-col items-center gap-4 my-8">
         <button 
           onClick={() => setView('home')}
-          className="w-full bg-blue-600 hover:bg-blue-500 text-white py-5 rounded-2xl font-bold shadow-[0_10px_20px_-5px_rgba(37,99,235,0.4)] active:scale-95 transition-all flex items-center justify-center gap-3"
+          className="w-full bg-blue-600 hover:bg-blue-500 text-white py-4 rounded-2xl font-bold shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3"
         >
           🚀 Start Shopping <ChevronRight size={20} />
         </button>
 
-        <button className="flex items-center justify-center gap-2 text-slate-300 font-medium py-3 hover:text-white transition-colors w-full">
+        <button className="flex items-center justify-center gap-2 text-slate-300 font-medium py-2 hover:text-white transition-colors w-full">
           <Star size={18} className="text-yellow-500 fill-yellow-500" /> 
           MM Tech Grand Opening Promotion
         </button>
       </div>
 
-      {/* Bottom Footer Links - အောက်ဆုံးမှာ fix ဖြစ်နေစေပါတယ် */}
-      <div className="grid grid-cols-2 gap-4 w-full max-w-sm mb-10 pt-4">
-        <a href="https://sonema.znnt.org/" target="_blank" rel="noreferrer" className="bg-[#112240] p-4 rounded-2xl border border-blue-900/50 flex flex-col items-center active:bg-blue-900/30 transition-colors shadow-lg">
+      {/* Bottom Footer Links */}
+      <div className="grid grid-cols-2 gap-4 w-full max-w-sm mb-6">
+        <a href="https://sonema.znnt.org/" target="_blank" rel="noreferrer" className="bg-[#112240] p-4 rounded-2xl border border-blue-900/50 flex flex-col items-center active:scale-95 transition-all">
           <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">စုံ/မ စစ်ဆေးရန်</span>
         </a>
-        <a href="http://www.ceir.gov.mm" target="_blank" rel="noreferrer" className="bg-[#112240] p-4 rounded-2xl border border-blue-900/50 flex flex-col items-center active:bg-blue-900/30 transition-colors shadow-lg">
+        <a href="http://www.ceir.gov.mm" target="_blank" rel="noreferrer" className="bg-[#112240] p-4 rounded-2xl border border-blue-900/50 flex flex-col items-center active:scale-95 transition-all">
           <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">CEIR စစ်ဆေးရန်</span>
         </a>
       </div>
@@ -104,14 +107,15 @@ export default function App() {
   );
 
   const HomeScreen = () => (
-    <div className="h-[100dvh] flex flex-col bg-[#0a192f] overflow-hidden">
-      <div className="bg-[#112240] p-6 rounded-b-[2.5rem] shadow-xl border-b border-blue-900/30">
+    <div className="flex flex-col min-h-screen bg-[#0a192f] pb-24">
+      {/* Header */}
+      <div className="bg-[#112240] p-6 rounded-b-[2.5rem] shadow-xl">
         <div className="flex justify-between items-center mb-6">
           <div>
             <p className="text-blue-400 text-[10px] font-black uppercase tracking-[0.2em]">Premium Store</p>
             <h2 className="text-2xl font-black text-white">MM Tech Store</h2>
           </div>
-          <div className="w-12 h-12 bg-blue-600/20 rounded-2xl flex items-center justify-center text-blue-400 border border-blue-500/20">
+          <div className="w-12 h-12 bg-blue-600/20 rounded-2xl flex items-center justify-center text-blue-400">
             <Gift size={24} />
           </div>
         </div>
@@ -120,23 +124,24 @@ export default function App() {
           <input 
             type="text" 
             placeholder="Search products..." 
-            className="w-full bg-[#0a192f] border border-blue-900/50 text-white py-4 pl-12 pr-4 rounded-2xl outline-none focus:ring-2 ring-blue-500/50 transition-all placeholder:text-slate-600"
+            className="w-full bg-[#0a192f] border border-blue-900/50 text-white py-4 pl-12 pr-4 rounded-2xl outline-none focus:ring-1 ring-blue-500/50 transition-all placeholder:text-slate-600 text-sm"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-6 pt-8 pb-24 custom-scrollbar">
+      {/* Content Area - Scrollable */}
+      <div className="flex-grow px-6 pt-8 overflow-y-auto">
         <h3 className="font-bold text-slate-300 mb-4 text-xs uppercase tracking-widest">Categories</h3>
-        <div className="grid grid-cols-2 gap-4 mb-10">
+        <div className="grid grid-cols-2 gap-4 mb-8">
           {categories.map(cat => (
             <button 
               key={cat.id}
               onClick={() => { setSelectedCat(cat.id); setView('products'); }}
-              className="bg-[#112240] p-6 rounded-3xl shadow-lg border border-transparent active:border-blue-500 active:bg-[#1a2d4d] flex flex-col items-center gap-3 transition-all group"
+              className="bg-[#112240] p-5 rounded-3xl shadow-lg border border-transparent active:border-blue-500 flex flex-col items-center gap-3 transition-all"
             >
-              <div className="p-4 bg-blue-600/10 text-blue-400 rounded-2xl group-active:scale-90 transition-transform">{cat.icon}</div>
+              <div className="p-3 bg-blue-600/10 text-blue-400 rounded-xl">{cat.icon}</div>
               <span className="text-xs font-bold text-slate-300">{cat.name}</span>
             </button>
           ))}
@@ -144,92 +149,96 @@ export default function App() {
 
         <div className="flex justify-between items-center mb-4">
           <h3 className="font-bold text-slate-300 text-xs uppercase tracking-widest">Popular Items</h3>
-          {loading && <Loader2 className="animate-spin text-blue-500" size={20} />}
+          {loading && <Loader2 className="animate-spin text-blue-500" size={16} />}
         </div>
         
-        <div className="space-y-4">
-          {products.map(p => (
+        <div className="space-y-4 mb-10">
+          {products.length > 0 ? products.map(p => (
             <div 
               key={p.id}
               onClick={() => { setSelectedProduct(p); setView('details'); }}
-              className="bg-[#112240] p-4 rounded-3xl shadow-md flex gap-4 active:scale-95 transition-all cursor-pointer border border-blue-900/20"
+              className="bg-[#112240] p-4 rounded-3xl shadow-md flex gap-4 active:scale-95 transition-all border border-blue-900/20"
             >
-              <div className="w-20 h-20 bg-[#0a192f] rounded-2xl overflow-hidden flex-shrink-0">
-                <img src={p.Link} alt={p.Name} className="w-full h-full object-cover opacity-80" />
+              <div className="w-16 h-16 bg-[#0a192f] rounded-2xl overflow-hidden flex-shrink-0">
+                <img src={p.Link} alt={p.Name} className="w-full h-full object-cover" />
               </div>
               <div className="flex flex-col justify-center flex-grow text-left">
-                <span className="text-[9px] text-blue-400 font-black uppercase tracking-[0.2em] mb-1">{p.Category}</span>
-                <h4 className="font-bold text-white text-md truncate">{p.Name}</h4>
-                <span className="text-blue-500 font-black mt-1">{p.Price} Ks</span>
+                <span className="text-[8px] text-blue-400 font-black uppercase tracking-[0.1em]">{p.Category}</span>
+                <h4 className="font-bold text-white text-sm truncate">{p.Name}</h4>
+                <span className="text-blue-500 font-black text-xs mt-1">{p.Price} Ks</span>
               </div>
               <div className="flex items-center">
-                <ChevronRight size={20} className="text-slate-600" />
+                <ChevronRight size={18} className="text-slate-600" />
               </div>
             </div>
-          ))}
+          )) : (
+            <p className="text-slate-500 text-center text-xs py-10 italic">အချက်အလက်များကို ဖတ်နေပါသည်...</p>
+          )}
         </div>
       </div>
 
-      <nav className="fixed bottom-0 left-0 right-0 bg-[#0a192f]/95 backdrop-blur-xl border-t border-blue-900/30 p-5 flex justify-around items-center shadow-[0_-10px_30px_rgba(0,0,0,0.5)] z-50">
-        <button onClick={() => setView('home')} className="text-blue-500 p-2"><ShoppingBag size={28} /></button>
-        <button className="text-slate-600 p-2"><History size={28} /></button>
-        <button onClick={() => setView('welcome')} className="text-slate-600 p-2"><Settings size={28} /></button>
+      {/* Navigation */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-[#0a192f]/95 backdrop-blur-xl border-t border-blue-900/30 p-5 flex justify-around items-center z-50">
+        <button onClick={() => setView('home')} className="text-blue-500 p-2"><ShoppingBag size={24} /></button>
+        <button className="text-slate-600 p-2"><History size={24} /></button>
+        <button onClick={() => setView('welcome')} className="text-slate-600 p-2"><Settings size={24} /></button>
       </nav>
     </div>
   );
 
   return (
-    <div className="max-w-md mx-auto h-[100dvh] relative bg-[#0a192f] overflow-x-hidden font-sans select-none shadow-2xl">
+    <div className="max-w-md mx-auto min-h-screen bg-[#0a192f] font-sans select-none overflow-x-hidden relative">
       {view === 'welcome' && <WelcomeScreen />}
       {view === 'home' && <HomeScreen />}
       {view === 'products' && (
-        <div className="h-[100dvh] flex flex-col bg-[#0a192f]">
-          <header className="p-6 flex items-center gap-4 bg-[#112240] border-b border-blue-900/30 shadow-lg">
-            <button onClick={() => setView('home')} className="p-2 bg-[#0a192f] border border-blue-900/50 rounded-xl text-white active:scale-90 transition-transform"><ArrowLeft size={20}/></button>
+        <div className="flex flex-col min-h-screen bg-[#0a192f]">
+          <header className="p-6 flex items-center gap-4 bg-[#112240] border-b border-blue-900/30">
+            <button onClick={() => setView('home')} className="p-2 bg-[#0a192f] border border-blue-900/50 rounded-xl text-white active:scale-90"><ArrowLeft size={20}/></button>
             <h2 className="text-xl font-black text-white">{selectedCat}</h2>
           </header>
-          <div className="flex-1 overflow-y-auto p-6 space-y-4">
+          <div className="flex-grow p-6 space-y-4 overflow-y-auto">
             {products.filter(p => p.Category === selectedCat).map(p => (
               <div 
                 key={p.id}
                 onClick={() => { setSelectedProduct(p); setView('details'); }}
-                className="bg-[#112240] p-5 rounded-3xl shadow-lg border border-blue-900/20 flex items-center justify-between active:bg-blue-900/30 transition-all text-left"
+                className="bg-[#112240] p-5 rounded-3xl shadow-lg border border-blue-900/20 flex items-center justify-between active:bg-blue-900/40 transition-all text-left"
               >
                 <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 bg-[#0a192f] rounded-2xl border border-blue-900/50 flex items-center justify-center text-blue-400 font-bold overflow-hidden">
-                     <img src={p.Link} className="w-full h-full object-cover opacity-70" />
+                  <div className="w-12 h-12 bg-[#0a192f] rounded-2xl overflow-hidden">
+                     <img src={p.Link} className="w-full h-full object-cover" />
                   </div>
                   <div>
-                    <h4 className="font-bold text-white">{p.Name}</h4>
+                    <h4 className="font-bold text-white text-sm">{p.Name}</h4>
                     <p className="text-xs font-black text-blue-500 mt-1">{p.Price} Ks</p>
                   </div>
                 </div>
-                <ChevronRight className="text-slate-700" />
+                <ChevronRight size={18} className="text-slate-700" />
               </div>
             ))}
           </div>
         </div>
       )}
       {view === 'details' && (
-        <div className="h-[100dvh] bg-[#0a192f] flex flex-col text-white overflow-hidden">
-          <div className="relative h-[45vh] bg-[#112240]">
-            <img src={selectedProduct.Link} className="w-full h-full object-cover opacity-60" />
+        <div className="flex flex-col min-h-screen bg-[#0a192f] text-white">
+          <div className="relative h-[40vh] bg-[#112240]">
+            <img src={selectedProduct.Link} className="w-full h-full object-cover opacity-70" />
             <div className="absolute inset-0 bg-gradient-to-t from-[#0a192f] via-transparent to-transparent"></div>
             <button 
               onClick={() => setView('products')} 
-              className="absolute top-6 left-6 p-3 bg-white/10 backdrop-blur rounded-2xl border border-white/10 shadow-lg active:scale-90 transition-transform"
+              className="absolute top-6 left-6 p-3 bg-white/10 backdrop-blur rounded-2xl border border-white/10"
             >
               <ArrowLeft size={20}/>
             </button>
           </div>
-          <div className="px-8 -mt-16 relative flex-1 flex flex-col">
+          <div className="px-8 -mt-10 relative flex-grow flex flex-col">
              <div className="space-y-1 mb-8">
-                <span className="px-4 py-1 bg-blue-600/20 text-blue-400 border border-blue-500/20 rounded-full text-[9px] font-black uppercase tracking-[0.2em]">{selectedProduct.Category}</span>
+                <span className="px-4 py-1 bg-blue-600/20 text-blue-400 border border-blue-500/20 rounded-full text-[8px] font-black uppercase tracking-[0.2em]">{selectedProduct.Category}</span>
                 <h2 className="text-3xl font-black text-white pt-2 leading-tight">{selectedProduct.Name}</h2>
                 <div className="text-2xl font-black text-blue-500 mt-2">{selectedProduct.Price} Ks</div>
               </div>
               
               <div className="bg-[#112240] p-6 rounded-3xl border border-blue-900/30 mb-8">
+                <h4 className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-2">Product Info</h4>
                 <p className="text-slate-400 text-sm leading-relaxed">{selectedProduct.Des}</p>
               </div>
 
@@ -237,7 +246,7 @@ export default function App() {
                 <button 
                   onClick={handleOrder}
                   disabled={loading}
-                  className="w-full bg-blue-600 text-white py-5 rounded-2xl font-black shadow-[0_15px_30px_rgba(37,99,235,0.4)] flex items-center justify-center gap-3 active:scale-95 transition-all"
+                  className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black shadow-xl flex items-center justify-center gap-3 active:scale-95 transition-all"
                 >
                   {loading ? <Loader2 className="animate-spin" /> : "Confirm Order"}
                 </button>
@@ -246,14 +255,13 @@ export default function App() {
         </div>
       )}
       {view === 'order_success' && (
-        <div className="h-[100dvh] bg-[#0a192f] flex flex-col items-center justify-center p-10 text-center">
+        <div className="flex flex-col min-h-screen bg-[#0a192f] items-center justify-center p-10 text-center">
           <div className="relative mb-8">
-            <div className="absolute inset-0 bg-green-500/20 blur-3xl rounded-full"></div>
-            <CheckCircle2 size={100} className="text-green-500 relative" />
+            <CheckCircle2 size={80} className="text-green-500 relative" />
           </div>
           <h2 className="text-3xl font-black text-white mb-4">Successful!</h2>
-          <p className="text-slate-400 mb-10">Admin မှ စစ်ဆေးပြီး ပစ္စည်းအား Telegram မှတစ်ဆင့် ပို့ဆောင်ပေးပါမည်။</p>
-          <button onClick={() => setView('home')} className="w-full bg-[#112240] text-blue-400 py-5 rounded-2xl font-black active:scale-95 transition-all">Home</button>
+          <p className="text-slate-400 mb-10 text-sm">အော်ဒါတင်ခြင်း အောင်မြင်ပါတယ်ရှင့်။ ပစ္စည်းအား Telegram မှတစ်ဆင့် ပို့ဆောင်ပေးပါမည်။</p>
+          <button onClick={() => setView('home')} className="w-full bg-[#112240] text-blue-400 py-4 rounded-2xl font-black active:scale-95">Home</button>
         </div>
       )}
     </div>
