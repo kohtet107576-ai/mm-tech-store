@@ -75,14 +75,14 @@ export default function App() {
     { id: 'Gsm reseller', name: 'GSM Reseller', icon: <Settings size={20} /> }
   ];
 
-  // --- (၂) AUTHENTICATION & PERSISTENCE FIX ---
+  // --- (၂) REFINED AUTHENTICATION LOGIC ---
   useEffect(() => {
-    const initAuth = async () => {
+    const handleInitialAuth = async () => {
       try {
-        // အကောင့်ဝင်ထားမှုကို Browser တွင် အမြဲမှတ်မိနေစေရန် သတ်မှတ်ခြင်း
+        // Browser မှာ အကောင့်ဝင်ထားမှုကို အမြဲမှတ်မိနေစေရန် သတ်မှတ်ခြင်း
         await setPersistence(auth, browserLocalPersistence);
         
-        // Redirect Login ရလဒ်ကို စစ်ဆေးခြင်း
+        // Redirect ပြီး ပြန်လာသည့်အခါ ရလဒ်ကို အရင်ဆုံး ဖမ်းယူစစ်ဆေးခြင်း
         const result = await getRedirectResult(auth);
         if (result?.user) {
           setUser(result.user);
@@ -90,22 +90,22 @@ export default function App() {
           setView('home');
         }
       } catch (error) {
-        console.error("Auth Init Error:", error);
+        console.error("Redirect Handling Error:", error);
       }
     };
-    initAuth();
+    handleInitialAuth();
 
+    // အကောင့် အခြေအနေ ပြောင်းလဲမှုကို စောင့်ကြည့်ခြင်း
     const unsubscribe = onAuthStateChanged(auth, async (currUser) => {
       if (currUser) {
         setUser(currUser);
         await syncProfile(currUser);
-        setView('home');
+        setView('home'); // User ရှိနေလျှင် Home သို့ တိုက်ရိုက်ပို့မည်
       } else {
         setUser(null);
         setProfile(null);
       }
-      // logic အားလုံးပြီးမှ Loading ကို ပိတ်မည်
-      setTimeout(() => setLoading(false), 1000);
+      setLoading(false); // စစ်ဆေးမှု ပြီးဆုံးကြောင်းloading ကို ပိတ်မည်
     });
 
     return () => unsubscribe();
@@ -147,7 +147,7 @@ export default function App() {
 
   const handleLogin = async () => {
     try {
-      setLoading(true);
+      setLoading(true); // Login စလုပ်ကတည်းက loading ပြမည်
       await signInWithRedirect(auth, googleProvider);
     } catch (e) { 
       console.error("Login Trigger Error:", e); 
@@ -189,14 +189,14 @@ export default function App() {
       const sorted = docs.sort((a, b) => b.timestamp - a.timestamp);
       setAllOrders(sorted);
       setMyOrders(sorted.filter(o => o.userId === user.uid));
-    }, (err) => console.error(err));
+    }, (err) => console.error("Firestore Orders Error:", err));
 
     let unsubMembers = () => {};
     if (profile?.role === 'admin') {
       const qMembers = collection(db, 'artifacts', appId, 'public', 'data', 'members');
       unsubMembers = onSnapshot(qMembers, (snapshot) => {
         setAllMembers(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
-      }, (err) => console.error(err));
+      }, (err) => console.error("Firestore Members Error:", err));
     }
     return () => { unsubOrders(); unsubMembers(); };
   }, [user, profile]);
@@ -264,7 +264,7 @@ export default function App() {
   if (loading) return (
     <div className="min-h-screen bg-[#0a192f] flex flex-col items-center justify-center gap-4 text-white">
       <Loader2 className="animate-spin text-blue-500" size={40}/>
-      <p className="text-blue-400 text-xs font-black uppercase tracking-widest animate-pulse">Synchronizing Data...</p>
+      <p className="text-blue-400 text-xs font-black uppercase tracking-widest animate-pulse">Checking Access...</p>
     </div>
   );
 
@@ -288,7 +288,7 @@ export default function App() {
                 </button>
                 <button onClick={() => setView('home')} className="w-full bg-slate-800/50 text-slate-400 py-4 rounded-2xl font-bold text-sm">Guest အနေဖြင့် ကြည့်မည်</button>
             </div>
-            <div className="text-[10px] uppercase font-bold tracking-[0.4em] text-slate-600 text-center">Cloud Identity Verified</div>
+            <div className="text-[10px] uppercase font-bold tracking-[0.4em] text-slate-600 text-center">Secure Cloud Checkout</div>
           </div>
         )}
 
@@ -297,7 +297,7 @@ export default function App() {
           <>
             <div className="bg-[#0d1b33] p-6 rounded-b-[2.5rem] shadow-xl border-b border-blue-900/30 sticky top-0 z-30">
               <div className="flex justify-between items-center mb-6 text-left">
-                <div><p className="text-blue-500 text-[10px] font-black uppercase tracking-widest">Store Front</p><h2 className="text-2xl font-black">Hi, {profile?.name.split(' ')[0] || user?.displayName?.split(' ')[0] || 'Guest'}</h2></div>
+                <div><p className="text-blue-500 text-[10px] font-black uppercase tracking-widest">Premium Store</p><h2 className="text-2xl font-black">Hi, {profile?.name.split(' ')[0] || user?.displayName?.split(' ')[0] || 'Guest'}</h2></div>
                 {user && <div className="w-10 h-10 rounded-full border-2 border-blue-600 p-0.5 shadow-lg overflow-hidden"><img src={user.photoURL} className="rounded-full w-full h-full" alt="U"/></div>}
               </div>
               <div className="relative"><Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18}/><input type="text" placeholder="Search services..." className="w-full bg-[#0a192f] border border-blue-900/50 text-white py-4 pl-12 pr-4 rounded-2xl outline-none focus:ring-1 ring-blue-500/20 text-sm" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} /></div>
@@ -307,7 +307,7 @@ export default function App() {
                   {categories.map(c => (
                     <button key={c.id} onClick={() => { setSelectedCat(c.id); setView('category_view'); }} className="bg-[#112240] p-5 rounded-[2rem] flex flex-col items-center gap-3 border border-transparent active:border-blue-500 shadow-lg">
                       <div className="p-3 bg-blue-600/10 rounded-2xl text-blue-400">{c.icon}</div>
-                      <span className="text-xs font-bold">{c.name}</span>
+                      <span className="text-xs font-bold text-white">{c.name}</span>
                     </button>
                   ))}
                 </div>
@@ -316,7 +316,7 @@ export default function App() {
                   {groupedProducts.filter(g => searchQuery === '' || g.name.toLowerCase().includes(searchQuery.toLowerCase())).map(group => (
                     <div key={group.name} onClick={() => { setSelectedGroup(group); setView('group_details'); }} className="bg-[#112240] p-2 rounded-2xl border border-blue-900/20 active:scale-95 text-center flex flex-col cursor-pointer group shadow-md">
                       <div className="aspect-square bg-[#0a192f] rounded-xl overflow-hidden border border-blue-900/30 mb-2 relative"><img src={formatImg(group.image)} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt="I"/><div className="absolute top-1 right-1 bg-blue-600 px-1.5 py-0.5 rounded-md text-[7px] font-black">{group.plans.length}</div></div>
-                      <h4 className="text-[10px] font-bold truncate px-1 leading-tight">{group.name}</h4>
+                      <h4 className="text-[10px] font-bold truncate px-1 leading-tight text-white">{group.name}</h4>
                       <span className="text-blue-500 text-[8px] font-black uppercase mt-1">View Store</span>
                     </div>
                   ))}
@@ -335,7 +335,7 @@ export default function App() {
             </header>
             <div className="p-5 grid grid-cols-3 gap-3 text-left overflow-y-auto">
               {groupedProducts.filter(g => g.category === selectedCat).map(group => (
-                <div key={group.name} onClick={() => { setSelectedGroup(group); setView('group_details'); }} className="bg-[#112240] p-2 rounded-2xl border border-blue-900/20 active:scale-95 text-center flex flex-col shadow-md"><div className="aspect-square bg-[#0a192f] rounded-xl overflow-hidden border border-blue-900/30 mb-2"><img src={formatImg(group.image)} className="w-full h-full object-cover" alt="Group" /></div><h4 className="text-[10px] font-bold truncate px-1 leading-tight">{group.name}</h4><p className="text-blue-400 text-[8px] mt-1 font-bold">{group.plans.length} Types</p></div>
+                <div key={group.name} onClick={() => { setSelectedGroup(group); setView('group_details'); }} className="bg-[#112240] p-2 rounded-2xl border border-blue-900/20 active:scale-95 text-center flex flex-col shadow-md"><div className="aspect-square bg-[#0a192f] rounded-xl overflow-hidden border border-blue-900/30 mb-2"><img src={formatImg(group.image)} className="w-full h-full object-cover" alt="Group" /></div><h4 className="text-[10px] font-bold truncate px-1 leading-tight text-white">{group.name}</h4><p className="text-blue-400 text-[8px] mt-1 font-bold">{group.plans.length} Types</p></div>
               ))}
             </div>
             <BottomNav />
@@ -347,12 +347,12 @@ export default function App() {
           <div className="flex flex-col flex-1 overflow-hidden">
             <div className="relative h-[35vh] bg-[#112240] flex-shrink-0"><img src={formatImg(selectedGroup?.image)} className="w-full h-full object-cover opacity-60" alt="B"/><div className="absolute inset-0 bg-gradient-to-t from-[#0a192f] via-transparent to-transparent"></div><button onClick={() => setView('home')} className="absolute top-6 left-6 p-3 bg-black/40 backdrop-blur rounded-2xl border border-white/10 active:scale-90"><ArrowLeft size={20}/></button></div>
             <div className="px-8 -mt-16 relative z-10 flex-1 flex flex-col text-left overflow-y-auto pb-32">
-                <h2 className="text-4xl font-black mb-1 leading-tight tracking-tight">{selectedGroup?.name}</h2>
+                <h2 className="text-4xl font-black mb-1 leading-tight tracking-tight text-white">{selectedGroup?.name}</h2>
                 <p className="text-slate-400 text-sm mb-10 italic">Select your package</p>
                 <div className="space-y-3">
                   {selectedGroup?.plans.map((p, i) => (
                     <button key={i} onClick={() => { setSelectedPlan(p); setView('checkout'); }} className="w-full bg-[#112240] p-5 rounded-3xl border border-blue-900/30 flex items-center justify-between active:border-blue-500 shadow-lg group">
-                      <div className="flex items-center gap-4 text-left"><div className="p-3 bg-blue-600/10 rounded-2xl text-blue-400 group-active:bg-blue-600 group-active:text-white transition-colors"><ShoppingBag size={18} /></div><div><h4 className="text-sm font-black">{getPProp(p, 'Plan')}</h4><p className="text-blue-500 font-black text-sm">{getPProp(p, 'Price')} Ks</p></div></div>
+                      <div className="flex items-center gap-4 text-left"><div className="p-3 bg-blue-600/10 rounded-2xl text-blue-400 group-active:bg-blue-600 group-active:text-white transition-colors"><ShoppingBag size={18} /></div><div><h4 className="text-sm font-black text-white">{getPProp(p, 'Plan')}</h4><p className="text-blue-500 font-black text-sm">{getPProp(p, 'Price')} Ks</p></div></div>
                       <ChevronRight size={16} className="text-slate-700" />
                     </button>
                   ))}
@@ -368,7 +368,7 @@ export default function App() {
             <header className="flex items-center gap-4 mb-8 text-white"><button onClick={() => setView('group_details')} className="p-2 bg-[#112240] rounded-xl"><ArrowLeft size={20}/></button><h2 className="text-xl font-black">Confirm Order</h2></header>
             <div className="bg-[#112240] p-10 rounded-[3rem] border border-blue-900/30 mb-8 text-center shadow-2xl">
                 <div className="w-24 h-24 mx-auto mb-6 rounded-3xl overflow-hidden border-4 border-blue-600/20 shadow-xl"><img src={formatImg(getPProp(selectedPlan, 'Link'))} className="w-full h-full object-cover" alt="I"/></div>
-                <h3 className="text-2xl font-black">{getPProp(selectedPlan, 'Name')}</h3>
+                <h3 className="text-2xl font-black text-white">{getPProp(selectedPlan, 'Name')}</h3>
                 <p className="text-blue-400 font-bold mb-4">{getPProp(selectedPlan, 'Plan')}</p>
                 <div className="text-3xl font-black text-white">{getPProp(selectedPlan, 'Price')} Ks</div>
             </div>
@@ -385,7 +385,7 @@ export default function App() {
 
         {/* --- ADMIN DASHBOARD --- */}
         {view === 'admin_dash' && profile?.role === 'admin' && (
-          <div className="p-8 text-left flex flex-col flex-1 pb-32 overflow-y-auto">
+          <div className="p-8 text-left flex flex-col flex-1 pb-32 overflow-y-auto text-white">
             <div className="flex justify-between items-center mb-6">
                 <h2 className="text-3xl font-black">Admin Panel</h2>
                 <div className="flex bg-[#112240] p-1 rounded-xl border border-blue-900/30 shadow-inner">
@@ -451,7 +451,7 @@ export default function App() {
                             </div>
                         ) : (
                             <>
-                                <h2 className="text-2xl font-black mb-1 leading-tight">{profile?.name || user.displayName}</h2>
+                                <h2 className="text-2xl font-black mb-1 leading-tight text-white">{profile?.name || user.displayName}</h2>
                                 <p className="text-blue-400 text-sm font-bold mb-8">{user.email}</p>
                                 <div className="bg-[#112240] w-full p-8 rounded-[2.5rem] border border-blue-900/30 mb-8 text-left shadow-xl">
                                     <div className="flex justify-between items-center py-4 border-b border-blue-900/20"><span className="text-slate-400 font-bold text-[10px] uppercase tracking-widest">Level</span><span className="bg-blue-600 text-white px-4 py-1 rounded-full text-[10px] font-black uppercase shadow-lg">{profile?.tier}</span></div>
@@ -470,7 +470,7 @@ export default function App() {
         {/* --- HISTORY --- */}
         {view === 'customer_dash' && (
           <div className="p-8 text-left flex flex-col flex-1 pb-32 overflow-y-auto">
-            <h2 className="text-3xl font-black mb-1 text-left">Purchase History</h2>
+            <h2 className="text-3xl font-black mb-1 text-left text-white">Purchase History</h2>
             <p className="text-slate-500 text-sm mb-8 text-left">Records of your orders</p>
             <div className="space-y-4">
                 {myOrders.map(o => (
