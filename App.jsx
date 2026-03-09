@@ -52,7 +52,7 @@ export default function App() {
   const [view, setView] = useState('welcome');
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true); // အစကတည်းက loading လုပ်ထားမည်
   const [products, setProducts] = useState([]);
   const [myOrders, setMyOrders] = useState([]);
   const [allOrders, setAllOrders] = useState([]); 
@@ -75,34 +75,39 @@ export default function App() {
     { id: 'Gsm reseller', name: 'GSM Reseller', icon: <Settings size={20} /> }
   ];
 
-  // --- (၂) AUTHENTICATION & REDIRECT HANDLING (FIXED VIEW RESET) ---
+  // --- (၂) AUTHENTICATION & IMPROVED LOGIN HANDLING ---
   useEffect(() => {
-    // Redirect Login ရလဒ်ကို အရင်စစ်ဆေးမည်
-    const checkRedirect = async () => {
+    // Redirect ပြီး ပြန်လာသည့် ရလဒ်ကို အရင်စစ်ဆေးမည်
+    const initAuth = async () => {
       try {
         const result = await getRedirectResult(auth);
         if (result?.user) {
-          // Redirect အောင်မြင်လျှင် Home သို့ တိုက်ရိုက်ပို့မည်
+          // အကယ်၍ Login အသစ်ဝင်ခြင်းဖြစ်ပါက Home သို့ တိုက်ရိုက်ပို့မည်
+          setUser(result.user);
+          await syncProfile(result.user);
           setView('home');
         }
       } catch (error) {
         console.error("Auth Redirect Error:", error);
       }
     };
-    checkRedirect();
+    initAuth();
 
+    // လက်ရှိ Auth အခြေအနေကို စစ်ဆေးခြင်း
     const unsubscribe = onAuthStateChanged(auth, async (currUser) => {
       if (currUser) {
         setUser(currUser);
         await syncProfile(currUser);
-        // Login ဝင်ထားပြီးသားဖြစ်ပါက Welcome screen တွင် မရပ်စေရန် Home သို့ ပြောင်းမည်
+        // User ရှိနေလျှင် Welcome Screen ကို မပြဘဲ Home သို့ တန်းသွားမည်
         setView('home');
       } else {
         setUser(null);
         setProfile(null);
-        setLoading(false);
       }
+      // logic များအားလုံး ပြီးမှသာ loading ကို ပိတ်မည်
+      setLoading(false);
     });
+
     return () => unsubscribe();
   }, []);
 
@@ -114,6 +119,7 @@ export default function App() {
       if (docSnap.exists()) {
         currentProfile = docSnap.data();
       } else {
+        // User အသစ်ဆိုလျှင် အချက်အလက်များ အလိုအလျောက် သိမ်းဆည်းမည် (Sign Up Process)
         currentProfile = {
           name: u.displayName || "User",
           email: u.email,
@@ -126,6 +132,7 @@ export default function App() {
         };
         await setDoc(docRef, currentProfile);
       }
+      
       const memberRef = doc(db, 'artifacts', appId, 'public', 'data', 'members', u.uid);
       await setDoc(memberRef, currentProfile, { merge: true });
       
@@ -134,15 +141,13 @@ export default function App() {
       setEditContact(currentProfile.contact || '');
       setContactInfo(currentProfile.contact || '');
     } catch (e) {
-      console.error("Sync Profile Error:", e);
-    } finally {
-      setLoading(false);
+      console.error("Profile Sync Error:", e);
     }
   };
 
   const handleLogin = async () => {
     try {
-      setLoading(true); // Login လုပ်စဉ် Loading ပြမည်
+      setLoading(true); // Login စလုပ်ကတည်းက loading ပြမည်
       await signInWithRedirect(auth, googleProvider);
     } catch (e) { 
       console.error("Login Trigger Error:", e); 
@@ -256,11 +261,11 @@ export default function App() {
     </nav>
   );
 
-  // Loading Screen: Login လုပ်ဆောင်နေစဉ် သို့မဟုတ် user အချက်အလက်ဖတ်နေစဉ် ပြသမည်
+  // Loading Screen
   if (loading) return (
     <div className="min-h-screen bg-[#0a192f] flex flex-col items-center justify-center gap-4 text-white">
       <Loader2 className="animate-spin text-blue-500" size={40}/>
-      <p className="text-blue-400 text-xs font-black uppercase tracking-widest animate-pulse">Checking Access...</p>
+      <p className="text-blue-400 text-xs font-black uppercase tracking-widest animate-pulse tracking-widest">Checking Access...</p>
     </div>
   );
 
@@ -268,7 +273,7 @@ export default function App() {
     <div className="bg-[#0a192f] min-h-screen text-white font-sans select-none overflow-x-hidden">
       <div className="max-w-2xl mx-auto w-full min-h-screen flex flex-col relative border-x border-blue-900/10 shadow-2xl">
         
-        {/* --- VIEW: WELCOME (အကောင့်မဝင်ရသေးလျှင်သာ ပြမည်) --- */}
+        {/* --- VIEW: WELCOME (User မရှိမှသာ ပြမည်) --- */}
         {view === 'welcome' && !user && (
           <div className="flex flex-col flex-1 items-center justify-between py-20 px-8 text-center">
             <div className="flex flex-col items-center">
@@ -288,8 +293,8 @@ export default function App() {
           </div>
         )}
 
-        {/* --- VIEW: HOME (Login ဝင်ထားလျှင် သို့မဟုတ် Guest ဆိုလျှင် ပြမည်) --- */}
-        {(view === 'home' || (view === 'welcome' && user)) && (
+        {/* --- VIEW: HOME (User ရှိလျှင် သို့မဟုတ် Guest ဆိုလျှင် ပြမည်) --- */}
+        {(view === 'home' || user) && (
           <>
             <div className="bg-[#0d1b33] p-6 rounded-b-[2.5rem] shadow-xl border-b border-blue-900/30 sticky top-0 z-30">
               <div className="flex justify-between items-center mb-6 text-left">
@@ -298,7 +303,7 @@ export default function App() {
               </div>
               <div className="relative"><Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18}/><input type="text" placeholder="Search digital services..." className="w-full bg-[#0a192f] border border-blue-900/50 text-white py-4 pl-12 pr-4 rounded-2xl outline-none focus:ring-1 ring-blue-500/20 text-sm" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} /></div>
             </div>
-            <div className="px-5 py-8 pb-32">
+            <div className="px-5 py-8 pb-32 overflow-y-auto">
                 <div className="grid grid-cols-2 gap-4 mb-10">
                   {categories.map(c => (
                     <button key={c.id} onClick={() => { setSelectedCat(c.id); setView('category_view'); }} className="bg-[#112240] p-5 rounded-[2rem] flex flex-col items-center gap-3 border border-transparent active:border-blue-500 shadow-lg">
@@ -329,7 +334,7 @@ export default function App() {
                 <button onClick={() => setView('home')} className="p-2 bg-[#0a192f] border border-blue-900/50 rounded-xl active:scale-90 transition-transform"><ArrowLeft size={20}/></button>
                 <h2 className="text-xl font-black">{selectedCat}</h2>
             </header>
-            <div className="p-5 grid grid-cols-3 gap-3 text-left">
+            <div className="p-5 grid grid-cols-3 gap-3 text-left overflow-y-auto">
               {groupedProducts.filter(g => g.category === selectedCat).map(group => (
                 <div key={group.name} onClick={() => { setSelectedGroup(group); setView('group_details'); }} className="bg-[#112240] p-2 rounded-2xl border border-blue-900/20 active:scale-95 text-center flex flex-col shadow-md"><div className="aspect-square bg-[#0a192f] rounded-xl overflow-hidden border border-blue-900/30 mb-2"><img src={formatImg(group.image)} className="w-full h-full object-cover" alt="Group" /></div><h4 className="text-[10px] font-bold truncate px-1 leading-tight">{group.name}</h4><p className="text-blue-400 text-[8px] mt-1 font-bold">{group.plans.length} Types</p></div>
               ))}
@@ -340,12 +345,12 @@ export default function App() {
 
         {/* --- VIEW: GROUP DETAILS --- */}
         {view === 'group_details' && (
-          <div className="flex flex-col flex-1">
-            <div className="relative h-[35vh] bg-[#112240]"><img src={formatImg(selectedGroup?.image)} className="w-full h-full object-cover opacity-60" alt="B"/><div className="absolute inset-0 bg-gradient-to-t from-[#0a192f] via-transparent to-transparent"></div><button onClick={() => setView('home')} className="absolute top-6 left-6 p-3 bg-black/40 backdrop-blur rounded-2xl border border-white/10 active:scale-90"><ArrowLeft size={20}/></button></div>
-            <div className="px-8 -mt-16 relative z-10 flex-1 flex flex-col text-left">
+          <div className="flex flex-col flex-1 overflow-hidden">
+            <div className="relative h-[35vh] bg-[#112240] flex-shrink-0"><img src={formatImg(selectedGroup?.image)} className="w-full h-full object-cover opacity-60" alt="B"/><div className="absolute inset-0 bg-gradient-to-t from-[#0a192f] via-transparent to-transparent"></div><button onClick={() => setView('home')} className="absolute top-6 left-6 p-3 bg-black/40 backdrop-blur rounded-2xl border border-white/10 active:scale-90"><ArrowLeft size={20}/></button></div>
+            <div className="px-8 -mt-16 relative z-10 flex-1 flex flex-col text-left overflow-y-auto pb-32">
                 <h2 className="text-4xl font-black mb-1 leading-tight tracking-tight">{selectedGroup?.name}</h2>
                 <p className="text-slate-400 text-sm mb-10 italic">Select your preferred plan</p>
-                <div className="space-y-3 pb-32">
+                <div className="space-y-3">
                   {selectedGroup?.plans.map((p, i) => (
                     <button key={i} onClick={() => { setSelectedPlan(p); setView('checkout'); }} className="w-full bg-[#112240] p-5 rounded-3xl border border-blue-900/30 flex items-center justify-between active:border-blue-500 shadow-lg group">
                       <div className="flex items-center gap-4 text-left"><div className="p-3 bg-blue-600/10 rounded-2xl text-blue-400 group-active:bg-blue-600 group-active:text-white transition-colors"><ShoppingBag size={18} /></div><div><h4 className="text-sm font-black">{getPProp(p, 'Plan')}</h4><p className="text-blue-500 font-black text-sm">{getPProp(p, 'Price')} Ks</p></div></div>
@@ -360,7 +365,7 @@ export default function App() {
 
         {/* --- VIEW: CHECKOUT --- */}
         {view === 'checkout' && (
-          <div className="p-8 text-left flex flex-col flex-1 pb-32">
+          <div className="p-8 text-left flex flex-col flex-1 pb-32 overflow-y-auto">
             <header className="flex items-center gap-4 mb-8 text-white"><button onClick={() => setView('group_details')} className="p-2 bg-[#112240] rounded-xl"><ArrowLeft size={20}/></button><h2 className="text-xl font-black">Checkout</h2></header>
             <div className="bg-[#112240] p-10 rounded-[3rem] border border-blue-900/30 mb-8 text-center shadow-2xl">
                 <div className="w-24 h-24 mx-auto mb-6 rounded-3xl overflow-hidden border-4 border-blue-600/20 shadow-xl"><img src={formatImg(getPProp(selectedPlan, 'Link'))} className="w-full h-full object-cover" alt="I"/></div>
@@ -448,7 +453,7 @@ export default function App() {
                             </div>
                         ) : (
                             <>
-                                <h2 className="text-2xl font-black mb-1 leading-tight">{profile?.name}</h2>
+                                <h2 className="text-2xl font-black mb-1 leading-tight">{profile?.name || user.displayName}</h2>
                                 <p className="text-blue-400 text-sm font-bold mb-8">{user.email}</p>
                                 <div className="bg-[#112240] w-full p-8 rounded-[2.5rem] border border-blue-900/30 mb-8 text-left shadow-xl">
                                     <div className="flex justify-between items-center py-4 border-b border-blue-900/20"><span className="text-slate-400 font-bold text-[10px] uppercase tracking-widest">Membership Tier</span><span className="bg-blue-600 text-white px-4 py-1 rounded-full text-[10px] font-black uppercase shadow-lg">{profile?.tier}</span></div>
