@@ -75,14 +75,14 @@ export default function App() {
     { id: 'Gsm reseller', name: 'GSM Reseller', icon: <Settings size={20} /> }
   ];
 
-  // --- (၂) REFINED AUTHENTICATION LOGIC ---
+  // --- (၂) REFINED AUTHENTICATION FLOW (FIXED REDIRECT LOOP) ---
   useEffect(() => {
-    const handleInitialAuth = async () => {
+    const runAuthSequence = async () => {
       try {
-        // Browser မှာ အကောင့်ဝင်ထားမှုကို အမြဲမှတ်မိနေစေရန် သတ်မှတ်ခြင်း
+        // (A) Browser Persistence သတ်မှတ်ခြင်း
         await setPersistence(auth, browserLocalPersistence);
         
-        // Redirect ပြီး ပြန်လာသည့်အခါ ရလဒ်ကို အရင်ဆုံး ဖမ်းယူစစ်ဆေးခြင်း
+        // (B) Redirect ပြန်လာသည့် ရလဒ်ကို အရင်စစ်ဆေးခြင်း
         const result = await getRedirectResult(auth);
         if (result?.user) {
           setUser(result.user);
@@ -90,25 +90,27 @@ export default function App() {
           setView('home');
         }
       } catch (error) {
-        console.error("Redirect Handling Error:", error);
+        console.error("Auth Sequence Error:", error);
+      } finally {
+        // Redirect စစ်ပြီးမှသာ Auth State ကို စောင့်ကြည့်မည်
+        const unsubscribe = onAuthStateChanged(auth, async (currUser) => {
+          if (currUser) {
+            setUser(currUser);
+            await syncProfile(currUser);
+            setView('home');
+          } else {
+            setUser(null);
+            setProfile(null);
+            setView('welcome');
+          }
+          // logic များပြီးဆုံးမှ loading ပိတ်မည်
+          setLoading(false);
+        });
+        return () => unsubscribe();
       }
     };
-    handleInitialAuth();
 
-    // အကောင့် အခြေအနေ ပြောင်းလဲမှုကို စောင့်ကြည့်ခြင်း
-    const unsubscribe = onAuthStateChanged(auth, async (currUser) => {
-      if (currUser) {
-        setUser(currUser);
-        await syncProfile(currUser);
-        setView('home'); // User ရှိနေလျှင် Home သို့ တိုက်ရိုက်ပို့မည်
-      } else {
-        setUser(null);
-        setProfile(null);
-      }
-      setLoading(false); // စစ်ဆေးမှု ပြီးဆုံးကြောင်းloading ကို ပိတ်မည်
-    });
-
-    return () => unsubscribe();
+    runAuthSequence();
   }, []);
 
   const syncProfile = async (u) => {
@@ -147,7 +149,7 @@ export default function App() {
 
   const handleLogin = async () => {
     try {
-      setLoading(true); // Login စလုပ်ကတည်းက loading ပြမည်
+      setLoading(true);
       await signInWithRedirect(auth, googleProvider);
     } catch (e) { 
       console.error("Login Trigger Error:", e); 
@@ -189,14 +191,14 @@ export default function App() {
       const sorted = docs.sort((a, b) => b.timestamp - a.timestamp);
       setAllOrders(sorted);
       setMyOrders(sorted.filter(o => o.userId === user.uid));
-    }, (err) => console.error("Firestore Orders Error:", err));
+    }, (err) => console.error(err));
 
     let unsubMembers = () => {};
     if (profile?.role === 'admin') {
       const qMembers = collection(db, 'artifacts', appId, 'public', 'data', 'members');
       unsubMembers = onSnapshot(qMembers, (snapshot) => {
         setAllMembers(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
-      }, (err) => console.error("Firestore Members Error:", err));
+      }, (err) => console.error(err));
     }
     return () => { unsubOrders(); unsubMembers(); };
   }, [user, profile]);
@@ -264,7 +266,7 @@ export default function App() {
   if (loading) return (
     <div className="min-h-screen bg-[#0a192f] flex flex-col items-center justify-center gap-4 text-white">
       <Loader2 className="animate-spin text-blue-500" size={40}/>
-      <p className="text-blue-400 text-xs font-black uppercase tracking-widest animate-pulse">Checking Access...</p>
+      <p className="text-blue-400 text-xs font-black uppercase tracking-widest animate-pulse">Accessing MM Tech...</p>
     </div>
   );
 
@@ -279,7 +281,7 @@ export default function App() {
                 <div className="w-32 h-32 bg-[#112240] rounded-[2.5rem] border border-blue-500/20 shadow-2xl mb-8 flex items-center justify-center overflow-hidden">
                     <img src="https://placehold.co/300x300/112240/ffffff?text=MM+TECH" className="w-full h-full object-cover" alt="Logo" />
                 </div>
-                <h1 className="text-4xl font-black mb-3 tracking-tight">MM Tech Store</h1>
+                <h1 className="text-4xl font-black mb-3 tracking-tight text-white">MM Tech Store</h1>
                 <p className="text-slate-400 text-sm max-w-xs leading-relaxed italic text-center">Myanmar's leading digital service platform.</p>
             </div>
             <div className="w-full max-w-xs space-y-4">
@@ -288,7 +290,7 @@ export default function App() {
                 </button>
                 <button onClick={() => setView('home')} className="w-full bg-slate-800/50 text-slate-400 py-4 rounded-2xl font-bold text-sm">Guest အနေဖြင့် ကြည့်မည်</button>
             </div>
-            <div className="text-[10px] uppercase font-bold tracking-[0.4em] text-slate-600 text-center">Secure Cloud Checkout</div>
+            <div className="text-[10px] uppercase font-bold tracking-[0.4em] text-slate-600 text-center">Verified Infrastructure</div>
           </div>
         )}
 
@@ -297,10 +299,10 @@ export default function App() {
           <>
             <div className="bg-[#0d1b33] p-6 rounded-b-[2.5rem] shadow-xl border-b border-blue-900/30 sticky top-0 z-30">
               <div className="flex justify-between items-center mb-6 text-left">
-                <div><p className="text-blue-500 text-[10px] font-black uppercase tracking-widest">Premium Store</p><h2 className="text-2xl font-black">Hi, {profile?.name.split(' ')[0] || user?.displayName?.split(' ')[0] || 'Guest'}</h2></div>
+                <div><p className="text-blue-500 text-[10px] font-black uppercase tracking-widest">Premium Store</p><h2 className="text-2xl font-black text-white">Welcome, {profile?.name.split(' ')[0] || user?.displayName?.split(' ')[0] || 'Guest'}</h2></div>
                 {user && <div className="w-10 h-10 rounded-full border-2 border-blue-600 p-0.5 shadow-lg overflow-hidden"><img src={user.photoURL} className="rounded-full w-full h-full" alt="U"/></div>}
               </div>
-              <div className="relative"><Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18}/><input type="text" placeholder="Search services..." className="w-full bg-[#0a192f] border border-blue-900/50 text-white py-4 pl-12 pr-4 rounded-2xl outline-none focus:ring-1 ring-blue-500/20 text-sm" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} /></div>
+              <div className="relative"><Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18}/><input type="text" placeholder="Search digital services..." className="w-full bg-[#0a192f] border border-blue-900/50 text-white py-4 pl-12 pr-4 rounded-2xl outline-none focus:ring-1 ring-blue-500/20 text-sm" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} /></div>
             </div>
             <div className="px-5 py-8 pb-32 overflow-y-auto">
                 <div className="grid grid-cols-2 gap-4 mb-10">
