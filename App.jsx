@@ -49,7 +49,7 @@ const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyC1MECq8ZNzdj-RxmBa
 const ADMIN_EMAILS = ["kohtet107576@gmail.com"]; 
 
 export default function App() {
-  const [view, setView] = useState('welcome');
+  const [view, setView] = useState('initializing'); // အစောပိုင်း အခြေအနေကို initializing ဟု သတ်မှတ်မည်
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -75,51 +75,51 @@ export default function App() {
     { id: 'Gsm reseller', name: 'GSM Reseller', icon: <Settings size={20} /> }
   ];
 
-  // --- (၂) REFINED AUTHENTICATION FLOW (PREVENTS DATA LOSS) ---
+  // --- (၂) REFINED AUTHENTICATION FLOW (STOP LOGIN LOOP) ---
   useEffect(() => {
     let isMounted = true;
 
-    const initAuth = async () => {
+    const setupAuth = async () => {
       try {
-        // A. Browser Persistence သတ်မှတ်ခြင်း
+        // A. Persistence ကို force လုပ်ခြင်း
         await setPersistence(auth, browserLocalPersistence);
         
-        // B. Redirect Login ရလဒ်ကို အရင်စစ်ဆေးမည်
-        const result = await getRedirectResult(auth);
-        if (result?.user && isMounted) {
-          console.log("Redirect User Found:", result.user.email);
-          setUser(result.user);
-          await syncProfile(result.user);
+        // B. Redirect Result ကို အရင်ဆုံး စစ်ဆေးခြင်း
+        const redirectResult = await getRedirectResult(auth);
+        if (redirectResult?.user && isMounted) {
+          console.log("Redirect Success:", redirectResult.user.email);
+          setUser(redirectResult.user);
+          await syncProfile(redirectResult.user);
           setView('home');
           setLoading(false);
           return;
         }
-      } catch (error) {
-        console.error("Auth Initialization Error:", error);
+      } catch (err) {
+        console.error("Auth Setup Fail:", err);
       }
 
-      // C. Auth State ပြောင်းလဲမှုကို စောင့်ကြည့်မည်
+      // C. Auth State ပြောင်းလဲမှုကို စောင့်ကြည့်ခြင်း
       const unsubscribe = onAuthStateChanged(auth, async (currUser) => {
-        if (isMounted) {
-          if (currUser) {
-            console.log("Auth State Changed: Logged In", currUser.email);
-            setUser(currUser);
-            await syncProfile(currUser);
-            setView('home');
-          } else {
-            console.log("Auth State Changed: No User");
-            setUser(null);
-            setProfile(null);
-            setView('welcome');
-          }
-          setLoading(false);
+        if (!isMounted) return;
+
+        if (currUser) {
+          console.log("Found Active User Session:", currUser.email);
+          setUser(currUser);
+          await syncProfile(currUser);
+          setView('home');
+        } else {
+          console.log("No User Session Found");
+          setUser(null);
+          setProfile(null);
+          setView('welcome');
         }
+        setLoading(false);
       });
 
       return unsubscribe;
     };
 
-    const unsubscribePromise = initAuth();
+    const unsubscribePromise = setupAuth();
 
     return () => {
       isMounted = false;
@@ -129,7 +129,6 @@ export default function App() {
 
   const syncProfile = async (u) => {
     if (!u) return;
-    // Rule 1 အရ path ကို အတိအကျ သတ်မှတ်ခြင်း
     const docRef = doc(db, 'artifacts', appId, 'users', u.uid, 'profile', 'data');
     const memberRef = doc(db, 'artifacts', appId, 'public', 'data', 'members', u.uid);
     
@@ -139,9 +138,9 @@ export default function App() {
       
       if (docSnap.exists()) {
         currentProfile = docSnap.data();
-        console.log("Existing Profile Found:", currentProfile.email);
+        console.log("Profile Data Fetched:", currentProfile.email);
       } else {
-        // User အသစ်အတွက် Profile တည်ဆောက်ခြင်း
+        // User အသစ်ဆိုလျှင် အချက်အလက်များ တည်ဆောက်ခြင်း (Sign Up)
         currentProfile = {
           name: u.displayName || "User",
           email: u.email,
@@ -152,11 +151,11 @@ export default function App() {
           photoURL: u.photoURL,
           createdAt: new Date().toISOString()
         };
-        console.log("Creating New Profile in Firestore...");
+        console.log("Creating New Profile in Database...");
         await setDoc(docRef, currentProfile);
       }
       
-      // Admin မြင်နိုင်ရန် Public စာရင်းကို အမြဲ Update လုပ်မည်
+      // Admin မြင်ကွင်းအတွက် အမြဲ Update လုပ်မည်
       await setDoc(memberRef, currentProfile, { merge: true });
       
       setProfile(currentProfile);
@@ -164,7 +163,7 @@ export default function App() {
       setEditContact(currentProfile.contact || '');
       setContactInfo(currentProfile.contact || '');
     } catch (e) {
-      console.error("Firestore Sync Error (Check Rules!):", e);
+      console.error("Firestore Write Failed (Check Rules!):", e);
     }
   };
 
@@ -212,14 +211,14 @@ export default function App() {
       const sorted = docs.sort((a, b) => b.timestamp - a.timestamp);
       setAllOrders(sorted);
       setMyOrders(sorted.filter(o => o.userId === user.uid));
-    }, (err) => console.error("Firestore Orders Fetch Fail:", err));
+    }, (err) => console.error("Orders Listener Error:", err));
 
     let unsubMembers = () => {};
     if (profile?.role === 'admin') {
       const qMembers = collection(db, 'artifacts', appId, 'public', 'data', 'members');
       unsubMembers = onSnapshot(qMembers, (snapshot) => {
         setAllMembers(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
-      }, (err) => console.error("Firestore Members Fetch Fail:", err));
+      }, (err) => console.error("Members Listener Error:", err));
     }
     return () => { unsubOrders(); unsubMembers(); };
   }, [user, profile]);
@@ -284,10 +283,11 @@ export default function App() {
     </nav>
   );
 
-  if (loading) return (
+  // Initializing or Loading Screen
+  if (loading || view === 'initializing') return (
     <div className="min-h-screen bg-[#0a192f] flex flex-col items-center justify-center gap-4 text-white">
       <Loader2 className="animate-spin text-blue-500" size={40}/>
-      <p className="text-blue-400 text-xs font-black uppercase tracking-widest animate-pulse">Synchronizing MM Tech...</p>
+      <p className="text-blue-400 text-xs font-black uppercase tracking-widest animate-pulse">Establishing Connection...</p>
     </div>
   );
 
@@ -295,8 +295,8 @@ export default function App() {
     <div className="bg-[#0a192f] min-h-screen text-white font-sans select-none overflow-x-hidden">
       <div className="max-w-2xl mx-auto w-full min-h-screen flex flex-col relative border-x border-blue-900/10 shadow-2xl">
         
-        {/* --- WELCOME --- */}
-        {view === 'welcome' && !user && (
+        {/* --- VIEW: WELCOME --- */}
+        {view === 'welcome' && (
           <div className="flex flex-col flex-1 items-center justify-between py-20 px-8 text-center">
             <div className="flex flex-col items-center">
                 <div className="w-32 h-32 bg-[#112240] rounded-[2.5rem] border border-blue-500/20 shadow-2xl mb-8 flex items-center justify-center overflow-hidden">
@@ -315,8 +315,8 @@ export default function App() {
           </div>
         )}
 
-        {/* --- HOME --- */}
-        {(view === 'home' || user) && (
+        {/* --- VIEW: HOME --- */}
+        {view === 'home' && (
           <>
             <div className="bg-[#0d1b33] p-6 rounded-b-[2.5rem] shadow-xl border-b border-blue-900/30 sticky top-0 z-30">
               <div className="flex justify-between items-center mb-6 text-left">
@@ -349,7 +349,7 @@ export default function App() {
           </>
         )}
 
-        {/* --- CATEGORY VIEW --- */}
+        {/* --- VIEW: CATEGORY VIEW --- */}
         {view === 'category_view' && (
           <div className="flex flex-col flex-1 pb-32">
             <header className="p-6 bg-[#112240] border-b border-blue-900/30 flex items-center gap-4 sticky top-0 z-30 shadow-lg text-white text-left">
@@ -365,7 +365,7 @@ export default function App() {
           </div>
         )}
 
-        {/* --- GROUP DETAILS --- */}
+        {/* --- VIEW: GROUP DETAILS --- */}
         {view === 'group_details' && (
           <div className="flex flex-col flex-1 overflow-hidden">
             <div className="relative h-[35vh] bg-[#112240] flex-shrink-0"><img src={formatImg(selectedGroup?.image)} className="w-full h-full object-cover opacity-60" alt="B"/><div className="absolute inset-0 bg-gradient-to-t from-[#0a192f] via-transparent to-transparent"></div><button onClick={() => setView('home')} className="absolute top-6 left-6 p-3 bg-black/40 backdrop-blur rounded-2xl border border-white/10 active:scale-90"><ArrowLeft size={20}/></button></div>
@@ -385,10 +385,10 @@ export default function App() {
           </div>
         )}
 
-        {/* --- CHECKOUT --- */}
+        {/* --- VIEW: CHECKOUT --- */}
         {view === 'checkout' && (
           <div className="p-8 text-left flex flex-col flex-1 pb-32 overflow-y-auto">
-            <header className="flex items-center gap-4 mb-8 text-white"><button onClick={() => setView('group_details')} className="p-2 bg-[#112240] rounded-xl"><ArrowLeft size={20}/></button><h2 className="text-xl font-black">Checkout</h2></header>
+            <header className="flex items-center gap-4 mb-8 text-white"><button onClick={() => setView('group_details')} className="p-2 bg-[#112240] rounded-xl"><ArrowLeft size={20}/></button><h2 className="text-xl font-black">Confirm Order</h2></header>
             <div className="bg-[#112240] p-10 rounded-[3rem] border border-blue-900/30 mb-8 text-center shadow-2xl">
                 <div className="w-24 h-24 mx-auto mb-6 rounded-3xl overflow-hidden border-4 border-blue-600/20 shadow-xl"><img src={formatImg(getPProp(selectedPlan, 'Link'))} className="w-full h-full object-cover" alt="I"/></div>
                 <h3 className="text-2xl font-black text-white">{getPProp(selectedPlan, 'Name')}</h3>
@@ -406,7 +406,7 @@ export default function App() {
           </div>
         )}
 
-        {/* --- ADMIN DASHBOARD --- */}
+        {/* --- VIEW: ADMIN DASHBOARD --- */}
         {view === 'admin_dash' && profile?.role === 'admin' && (
           <div className="p-8 text-left flex flex-col flex-1 pb-32 overflow-y-auto text-white">
             <div className="flex justify-between items-center mb-6">
@@ -446,8 +446,8 @@ export default function App() {
                             </div>
                             <div className="grid grid-cols-3 gap-2">
                                 <button onClick={() => updateMemberTier(m.uid, 'Standard')} className="bg-slate-800 py-2 rounded-lg text-[8px] font-bold uppercase active:scale-95 transition-all text-white">Standard</button>
-                                <button onClick={() => updateMemberTier(m.uid, 'VIP')} className="bg-yellow-600/10 text-yellow-500 py-2 rounded-lg text-[8px] font-bold uppercase border border-yellow-600/20 active:scale-95 transition-all">VIP</button>
-                                <button onClick={() => updateMemberTier(m.uid, 'Reseller')} className="bg-blue-600/10 text-blue-400 py-2 rounded-lg text-[8px] font-bold uppercase border border-blue-600/20 active:scale-95 transition-all">Reseller</button>
+                                <button onClick={() => updateMemberTier(m.uid, 'VIP')} className="bg-yellow-600/10 text-yellow-500 py-2 rounded-lg text-[8px] font-bold uppercase border border-yellow-600/20 active:scale-95 transition-all text-white">VIP</button>
+                                <button onClick={() => updateMemberTier(m.uid, 'Reseller')} className="bg-blue-600/10 text-blue-400 py-2 rounded-lg text-[8px] font-bold uppercase border border-blue-600/20 active:scale-95 transition-all text-white">Reseller</button>
                             </div>
                         </div>
                     ))}
@@ -457,7 +457,7 @@ export default function App() {
           </div>
         )}
 
-        {/* --- PROFILE --- */}
+        {/* --- VIEW: PROFILE --- */}
         {view === 'profile' && (
             <div className="p-8 text-center flex flex-col flex-1 items-center justify-center pb-32 overflow-y-auto">
                 {user ? (
@@ -490,7 +490,7 @@ export default function App() {
             </div>
         )}
 
-        {/* --- HISTORY --- */}
+        {/* --- VIEW: CUSTOMER DASHBOARD --- */}
         {view === 'customer_dash' && (
           <div className="p-8 text-left flex flex-col flex-1 pb-32 overflow-y-auto text-white">
             <h2 className="text-3xl font-black mb-1 text-left">My History</h2>
@@ -512,7 +512,7 @@ export default function App() {
           </div>
         )}
 
-        {/* --- SUCCESS --- */}
+        {/* --- VIEW: SUCCESS --- */}
         {view === 'order_success' && (
           <div className="flex-1 flex flex-col items-center justify-center p-10 text-center text-white bg-[#0a192f]">
             <div className="w-24 h-24 bg-green-500/10 rounded-full flex items-center justify-center mb-8 border border-green-500/20 shadow-2xl animate-pulse"><CheckCircle2 size={60} className="text-green-500" /></div>
