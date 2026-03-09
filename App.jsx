@@ -75,20 +75,28 @@ export default function App() {
     { id: 'Gsm reseller', name: 'GSM Reseller', icon: <Settings size={20} /> }
   ];
 
-  // --- (၂) AUTHENTICATION & REDIRECT LOGIN LOGIC ---
+  // --- (၂) AUTHENTICATION & REDIRECT HANDLING (FIXED VIEW RESET) ---
   useEffect(() => {
-    // Redirect ပြီး Website ဆီ ပြန်ရောက်လာသည့်အခါ Login အောင်မြင်မှုကို စစ်ဆေးခြင်း
-    getRedirectResult(auth).then((result) => {
-      if (result?.user) {
-        setView('home');
+    // Redirect Login ရလဒ်ကို အရင်စစ်ဆေးမည်
+    const checkRedirect = async () => {
+      try {
+        const result = await getRedirectResult(auth);
+        if (result?.user) {
+          // Redirect အောင်မြင်လျှင် Home သို့ တိုက်ရိုက်ပို့မည်
+          setView('home');
+        }
+      } catch (error) {
+        console.error("Auth Redirect Error:", error);
       }
-    }).catch((e) => console.error("Auth Error:", e));
+    };
+    checkRedirect();
 
     const unsubscribe = onAuthStateChanged(auth, async (currUser) => {
       if (currUser) {
         setUser(currUser);
         await syncProfile(currUser);
-        if (view === 'welcome') setView('home');
+        // Login ဝင်ထားပြီးသားဖြစ်ပါက Welcome screen တွင် မရပ်စေရန် Home သို့ ပြောင်းမည်
+        setView('home');
       } else {
         setUser(null);
         setProfile(null);
@@ -118,7 +126,6 @@ export default function App() {
         };
         await setDoc(docRef, currentProfile);
       }
-      // Member စာရင်းအား Admin စီမံနိုင်ရန် Public Path တွင် သိမ်းခြင်း
       const memberRef = doc(db, 'artifacts', appId, 'public', 'data', 'members', u.uid);
       await setDoc(memberRef, currentProfile, { merge: true });
       
@@ -127,7 +134,7 @@ export default function App() {
       setEditContact(currentProfile.contact || '');
       setContactInfo(currentProfile.contact || '');
     } catch (e) {
-      console.error(e);
+      console.error("Sync Profile Error:", e);
     } finally {
       setLoading(false);
     }
@@ -135,9 +142,12 @@ export default function App() {
 
   const handleLogin = async () => {
     try {
-      // Mobile Browser များတွင် ခိုင်မာစေရန် Redirect စနစ်ကို အသုံးပြုထားပါသည်
+      setLoading(true); // Login လုပ်စဉ် Loading ပြမည်
       await signInWithRedirect(auth, googleProvider);
-    } catch (e) { console.error("Login Trigger Error:", e); }
+    } catch (e) { 
+      console.error("Login Trigger Error:", e); 
+      setLoading(false);
+    }
   };
 
   const handleUpdateProfile = async () => {
@@ -246,20 +256,26 @@ export default function App() {
     </nav>
   );
 
-  if (loading && view !== 'welcome') return <div className="min-h-screen bg-[#0a192f] flex flex-col items-center justify-center gap-4 text-white"><Loader2 className="animate-spin text-blue-500" size={40}/><p className="text-blue-400 text-xs font-black uppercase tracking-widest animate-pulse">Connecting to MM Tech...</p></div>;
+  // Loading Screen: Login လုပ်ဆောင်နေစဉ် သို့မဟုတ် user အချက်အလက်ဖတ်နေစဉ် ပြသမည်
+  if (loading) return (
+    <div className="min-h-screen bg-[#0a192f] flex flex-col items-center justify-center gap-4 text-white">
+      <Loader2 className="animate-spin text-blue-500" size={40}/>
+      <p className="text-blue-400 text-xs font-black uppercase tracking-widest animate-pulse">Checking Access...</p>
+    </div>
+  );
 
   return (
     <div className="bg-[#0a192f] min-h-screen text-white font-sans select-none overflow-x-hidden">
       <div className="max-w-2xl mx-auto w-full min-h-screen flex flex-col relative border-x border-blue-900/10 shadow-2xl">
         
-        {/* --- WELCOME --- */}
-        {view === 'welcome' && (
+        {/* --- VIEW: WELCOME (အကောင့်မဝင်ရသေးလျှင်သာ ပြမည်) --- */}
+        {view === 'welcome' && !user && (
           <div className="flex flex-col flex-1 items-center justify-between py-20 px-8 text-center">
             <div className="flex flex-col items-center">
                 <div className="w-32 h-32 bg-[#112240] rounded-[2.5rem] border border-blue-500/20 shadow-2xl mb-8 flex items-center justify-center overflow-hidden">
                     <img src="https://placehold.co/300x300/112240/ffffff?text=MM+TECH" className="w-full h-full object-cover" alt="Logo" />
                 </div>
-                <h1 className="text-4xl font-black mb-3">MM Tech Store</h1>
+                <h1 className="text-4xl font-black mb-3 tracking-tight">MM Tech Store</h1>
                 <p className="text-slate-400 text-sm max-w-xs leading-relaxed italic text-center">Myanmar's leading digital service platform.</p>
             </div>
             <div className="w-full max-w-xs space-y-4">
@@ -272,12 +288,12 @@ export default function App() {
           </div>
         )}
 
-        {/* --- HOME --- */}
-        {view === 'home' && (
+        {/* --- VIEW: HOME (Login ဝင်ထားလျှင် သို့မဟုတ် Guest ဆိုလျှင် ပြမည်) --- */}
+        {(view === 'home' || (view === 'welcome' && user)) && (
           <>
             <div className="bg-[#0d1b33] p-6 rounded-b-[2.5rem] shadow-xl border-b border-blue-900/30 sticky top-0 z-30">
               <div className="flex justify-between items-center mb-6 text-left">
-                <div><p className="text-blue-500 text-[10px] font-black uppercase tracking-widest">Premium Store</p><h2 className="text-2xl font-black">Welcome, {profile?.name.split(' ')[0] || 'Guest'}</h2></div>
+                <div><p className="text-blue-500 text-[10px] font-black uppercase tracking-widest">Premium Store</p><h2 className="text-2xl font-black">Welcome, {profile?.name.split(' ')[0] || user?.displayName?.split(' ')[0] || 'Guest'}</h2></div>
                 {user && <div className="w-10 h-10 rounded-full border-2 border-blue-600 p-0.5 shadow-lg overflow-hidden"><img src={user.photoURL} className="rounded-full w-full h-full" alt="U"/></div>}
               </div>
               <div className="relative"><Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18}/><input type="text" placeholder="Search digital services..." className="w-full bg-[#0a192f] border border-blue-900/50 text-white py-4 pl-12 pr-4 rounded-2xl outline-none focus:ring-1 ring-blue-500/20 text-sm" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} /></div>
@@ -306,14 +322,14 @@ export default function App() {
           </>
         )}
 
-        {/* --- CATEGORY VIEW --- */}
+        {/* --- VIEW: CATEGORY VIEW --- */}
         {view === 'category_view' && (
           <div className="flex flex-col flex-1 pb-32">
-            <header className="p-6 bg-[#112240] border-b border-blue-900/30 flex items-center gap-4 sticky top-0 z-30 shadow-lg text-white">
-                <button onClick={() => setView('home')} className="p-2 bg-[#0a192f] rounded-xl active:scale-90 transition-transform"><ArrowLeft size={20}/></button>
+            <header className="p-6 bg-[#112240] border-b border-blue-900/30 flex items-center gap-4 sticky top-0 z-30 shadow-lg text-white text-left">
+                <button onClick={() => setView('home')} className="p-2 bg-[#0a192f] border border-blue-900/50 rounded-xl active:scale-90 transition-transform"><ArrowLeft size={20}/></button>
                 <h2 className="text-xl font-black">{selectedCat}</h2>
             </header>
-            <div className="p-5 grid grid-cols-3 gap-3">
+            <div className="p-5 grid grid-cols-3 gap-3 text-left">
               {groupedProducts.filter(g => g.category === selectedCat).map(group => (
                 <div key={group.name} onClick={() => { setSelectedGroup(group); setView('group_details'); }} className="bg-[#112240] p-2 rounded-2xl border border-blue-900/20 active:scale-95 text-center flex flex-col shadow-md"><div className="aspect-square bg-[#0a192f] rounded-xl overflow-hidden border border-blue-900/30 mb-2"><img src={formatImg(group.image)} className="w-full h-full object-cover" alt="Group" /></div><h4 className="text-[10px] font-bold truncate px-1 leading-tight">{group.name}</h4><p className="text-blue-400 text-[8px] mt-1 font-bold">{group.plans.length} Types</p></div>
               ))}
@@ -322,7 +338,7 @@ export default function App() {
           </div>
         )}
 
-        {/* --- GROUP DETAILS --- */}
+        {/* --- VIEW: GROUP DETAILS --- */}
         {view === 'group_details' && (
           <div className="flex flex-col flex-1">
             <div className="relative h-[35vh] bg-[#112240]"><img src={formatImg(selectedGroup?.image)} className="w-full h-full object-cover opacity-60" alt="B"/><div className="absolute inset-0 bg-gradient-to-t from-[#0a192f] via-transparent to-transparent"></div><button onClick={() => setView('home')} className="absolute top-6 left-6 p-3 bg-black/40 backdrop-blur rounded-2xl border border-white/10 active:scale-90"><ArrowLeft size={20}/></button></div>
@@ -342,7 +358,7 @@ export default function App() {
           </div>
         )}
 
-        {/* --- CHECKOUT --- */}
+        {/* --- VIEW: CHECKOUT --- */}
         {view === 'checkout' && (
           <div className="p-8 text-left flex flex-col flex-1 pb-32">
             <header className="flex items-center gap-4 mb-8 text-white"><button onClick={() => setView('group_details')} className="p-2 bg-[#112240] rounded-xl"><ArrowLeft size={20}/></button><h2 className="text-xl font-black">Checkout</h2></header>
@@ -364,7 +380,7 @@ export default function App() {
           </div>
         )}
 
-        {/* --- ADMIN DASHBOARD --- */}
+        {/* --- VIEW: ADMIN DASHBOARD --- */}
         {view === 'admin_dash' && profile?.role === 'admin' && (
           <div className="p-8 text-left flex flex-col flex-1 pb-32 overflow-y-auto">
             <div className="flex justify-between items-center mb-6">
@@ -415,9 +431,9 @@ export default function App() {
           </div>
         )}
 
-        {/* --- PROFILE (EDIT FEATURE) --- */}
+        {/* --- VIEW: PROFILE --- */}
         {view === 'profile' && (
-            <div className="p-8 text-center flex flex-col flex-1 items-center justify-center pb-32">
+            <div className="p-8 text-center flex flex-col flex-1 items-center justify-center pb-32 overflow-y-auto">
                 {user ? (
                     <div className="w-full max-w-sm flex flex-col items-center">
                         <div className="w-24 h-24 rounded-full border-4 border-blue-600 p-1 mb-6 shadow-2xl relative">
@@ -448,7 +464,7 @@ export default function App() {
             </div>
         )}
 
-        {/* --- CUSTOMER HISTORY --- */}
+        {/* --- VIEW: CUSTOMER HISTORY --- */}
         {view === 'customer_dash' && (
           <div className="p-8 text-left flex flex-col flex-1 pb-32 overflow-y-auto">
             <h2 className="text-3xl font-black mb-1 text-left">My History</h2>
@@ -470,7 +486,7 @@ export default function App() {
           </div>
         )}
 
-        {/* --- SUCCESS --- */}
+        {/* --- VIEW: SUCCESS --- */}
         {view === 'order_success' && (
           <div className="flex-1 flex flex-col items-center justify-center p-10 text-center text-white bg-[#0a192f]">
             <div className="w-24 h-24 bg-green-500/10 rounded-full flex items-center justify-center mb-8 border border-green-500/20 shadow-2xl animate-pulse"><CheckCircle2 size={60} className="text-green-500" /></div>
