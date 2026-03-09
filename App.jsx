@@ -75,36 +75,39 @@ export default function App() {
     { id: 'Gsm reseller', name: 'GSM Reseller', icon: <Settings size={20} /> }
   ];
 
-  // --- (၂) REFINED AUTHENTICATION FLOW (PREVENTS REDIRECT LOOP) ---
+  // --- (၂) REFINED AUTHENTICATION FLOW (PREVENTS DATA LOSS) ---
   useEffect(() => {
     let isMounted = true;
 
     const initAuth = async () => {
       try {
-        // A. Persistence ကို အရင်ဆုံး Force လုပ်မည်
+        // A. Browser Persistence သတ်မှတ်ခြင်း
         await setPersistence(auth, browserLocalPersistence);
         
-        // B. Redirect Login ရလဒ်ကို စစ်ဆေးမည်
+        // B. Redirect Login ရလဒ်ကို အရင်စစ်ဆေးမည်
         const result = await getRedirectResult(auth);
         if (result?.user && isMounted) {
+          console.log("Redirect User Found:", result.user.email);
           setUser(result.user);
           await syncProfile(result.user);
           setView('home');
           setLoading(false);
-          return; // Redirect result တွေ့လျှင် ဒီမှာတင် ရပ်မည်
+          return;
         }
       } catch (error) {
         console.error("Auth Initialization Error:", error);
       }
 
-      // C. Auth State ပြောင်းလဲမှုကို စောင့်ကြည့်မည် (Redirect Result မတွေ့မှသာ ၎င်းကို အသုံးပြုမည်)
+      // C. Auth State ပြောင်းလဲမှုကို စောင့်ကြည့်မည်
       const unsubscribe = onAuthStateChanged(auth, async (currUser) => {
         if (isMounted) {
           if (currUser) {
+            console.log("Auth State Changed: Logged In", currUser.email);
             setUser(currUser);
             await syncProfile(currUser);
             setView('home');
           } else {
+            console.log("Auth State Changed: No User");
             setUser(null);
             setProfile(null);
             setView('welcome');
@@ -126,13 +129,19 @@ export default function App() {
 
   const syncProfile = async (u) => {
     if (!u) return;
+    // Rule 1 အရ path ကို အတိအကျ သတ်မှတ်ခြင်း
     const docRef = doc(db, 'artifacts', appId, 'users', u.uid, 'profile', 'data');
+    const memberRef = doc(db, 'artifacts', appId, 'public', 'data', 'members', u.uid);
+    
     try {
       const docSnap = await getDoc(docRef);
       let currentProfile;
+      
       if (docSnap.exists()) {
         currentProfile = docSnap.data();
+        console.log("Existing Profile Found:", currentProfile.email);
       } else {
+        // User အသစ်အတွက် Profile တည်ဆောက်ခြင်း
         currentProfile = {
           name: u.displayName || "User",
           email: u.email,
@@ -143,10 +152,11 @@ export default function App() {
           photoURL: u.photoURL,
           createdAt: new Date().toISOString()
         };
+        console.log("Creating New Profile in Firestore...");
         await setDoc(docRef, currentProfile);
       }
       
-      const memberRef = doc(db, 'artifacts', appId, 'public', 'data', 'members', u.uid);
+      // Admin မြင်နိုင်ရန် Public စာရင်းကို အမြဲ Update လုပ်မည်
       await setDoc(memberRef, currentProfile, { merge: true });
       
       setProfile(currentProfile);
@@ -154,7 +164,7 @@ export default function App() {
       setEditContact(currentProfile.contact || '');
       setContactInfo(currentProfile.contact || '');
     } catch (e) {
-      console.error("Sync Profile Error:", e);
+      console.error("Firestore Sync Error (Check Rules!):", e);
     }
   };
 
@@ -202,14 +212,14 @@ export default function App() {
       const sorted = docs.sort((a, b) => b.timestamp - a.timestamp);
       setAllOrders(sorted);
       setMyOrders(sorted.filter(o => o.userId === user.uid));
-    }, (err) => console.error(err));
+    }, (err) => console.error("Firestore Orders Fetch Fail:", err));
 
     let unsubMembers = () => {};
     if (profile?.role === 'admin') {
       const qMembers = collection(db, 'artifacts', appId, 'public', 'data', 'members');
       unsubMembers = onSnapshot(qMembers, (snapshot) => {
         setAllMembers(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
-      }, (err) => console.error(err));
+      }, (err) => console.error("Firestore Members Fetch Fail:", err));
     }
     return () => { unsubOrders(); unsubMembers(); };
   }, [user, profile]);
@@ -277,7 +287,7 @@ export default function App() {
   if (loading) return (
     <div className="min-h-screen bg-[#0a192f] flex flex-col items-center justify-center gap-4 text-white">
       <Loader2 className="animate-spin text-blue-500" size={40}/>
-      <p className="text-blue-400 text-xs font-black uppercase tracking-widest animate-pulse">Syncing MM Tech Hub...</p>
+      <p className="text-blue-400 text-xs font-black uppercase tracking-widest animate-pulse">Synchronizing MM Tech...</p>
     </div>
   );
 
@@ -292,7 +302,7 @@ export default function App() {
                 <div className="w-32 h-32 bg-[#112240] rounded-[2.5rem] border border-blue-500/20 shadow-2xl mb-8 flex items-center justify-center overflow-hidden">
                     <img src="https://placehold.co/300x300/112240/ffffff?text=MM+TECH" className="w-full h-full object-cover" alt="Logo" />
                 </div>
-                <h1 className="text-4xl font-black mb-3 tracking-tight text-white">MM Tech Store</h1>
+                <h1 className="text-4xl font-black mb-3 tracking-tight text-white text-left">MM Tech Store</h1>
                 <p className="text-slate-400 text-sm max-w-xs leading-relaxed italic text-center">Myanmar's leading digital service platform.</p>
             </div>
             <div className="w-full max-w-xs space-y-4">
@@ -313,7 +323,7 @@ export default function App() {
                 <div><p className="text-blue-500 text-[10px] font-black uppercase tracking-widest">Premium Store</p><h2 className="text-2xl font-black text-white">Welcome, {profile?.name.split(' ')[0] || user?.displayName?.split(' ')[0] || 'Guest'}</h2></div>
                 {user && <div className="w-10 h-10 rounded-full border-2 border-blue-600 p-0.5 shadow-lg overflow-hidden"><img src={user.photoURL} className="rounded-full w-full h-full" alt="U"/></div>}
               </div>
-              <div className="relative"><Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18}/><input type="text" placeholder="Search services..." className="w-full bg-[#0a192f] border border-blue-900/50 text-white py-4 pl-12 pr-4 rounded-2xl outline-none focus:ring-1 ring-blue-500/20 text-sm" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} /></div>
+              <div className="relative"><Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18}/><input type="text" placeholder="Search digital services..." className="w-full bg-[#0a192f] border border-blue-900/50 text-white py-4 pl-12 pr-4 rounded-2xl outline-none focus:ring-1 ring-blue-500/20 text-sm" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} /></div>
             </div>
             <div className="px-5 py-8 pb-32 overflow-y-auto">
                 <div className="grid grid-cols-2 gap-4 mb-10">
@@ -324,7 +334,7 @@ export default function App() {
                     </button>
                   ))}
                 </div>
-                <h3 className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-6 ml-2 text-left">Popular Now</h3>
+                <h3 className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-6 ml-2 text-left">Popular Items</h3>
                 <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
                   {groupedProducts.filter(g => searchQuery === '' || g.name.toLowerCase().includes(searchQuery.toLowerCase())).map(group => (
                     <div key={group.name} onClick={() => { setSelectedGroup(group); setView('group_details'); }} className="bg-[#112240] p-2 rounded-2xl border border-blue-900/20 active:scale-95 text-center flex flex-col cursor-pointer group shadow-md">
@@ -361,7 +371,7 @@ export default function App() {
             <div className="relative h-[35vh] bg-[#112240] flex-shrink-0"><img src={formatImg(selectedGroup?.image)} className="w-full h-full object-cover opacity-60" alt="B"/><div className="absolute inset-0 bg-gradient-to-t from-[#0a192f] via-transparent to-transparent"></div><button onClick={() => setView('home')} className="absolute top-6 left-6 p-3 bg-black/40 backdrop-blur rounded-2xl border border-white/10 active:scale-90"><ArrowLeft size={20}/></button></div>
             <div className="px-8 -mt-16 relative z-10 flex-1 flex flex-col text-left overflow-y-auto pb-32">
                 <h2 className="text-4xl font-black mb-1 leading-tight tracking-tight text-white">{selectedGroup?.name}</h2>
-                <p className="text-slate-400 text-sm mb-10 italic">Select your package</p>
+                <p className="text-slate-400 text-sm mb-10 italic">Select your preferred plan</p>
                 <div className="space-y-3">
                   {selectedGroup?.plans.map((p, i) => (
                     <button key={i} onClick={() => { setSelectedPlan(p); setView('checkout'); }} className="w-full bg-[#112240] p-5 rounded-3xl border border-blue-900/30 flex items-center justify-between active:border-blue-500 shadow-lg group">
@@ -378,7 +388,7 @@ export default function App() {
         {/* --- CHECKOUT --- */}
         {view === 'checkout' && (
           <div className="p-8 text-left flex flex-col flex-1 pb-32 overflow-y-auto">
-            <header className="flex items-center gap-4 mb-8 text-white"><button onClick={() => setView('group_details')} className="p-2 bg-[#112240] rounded-xl"><ArrowLeft size={20}/></button><h2 className="text-xl font-black">Confirm Order</h2></header>
+            <header className="flex items-center gap-4 mb-8 text-white"><button onClick={() => setView('group_details')} className="p-2 bg-[#112240] rounded-xl"><ArrowLeft size={20}/></button><h2 className="text-xl font-black">Checkout</h2></header>
             <div className="bg-[#112240] p-10 rounded-[3rem] border border-blue-900/30 mb-8 text-center shadow-2xl">
                 <div className="w-24 h-24 mx-auto mb-6 rounded-3xl overflow-hidden border-4 border-blue-600/20 shadow-xl"><img src={formatImg(getPProp(selectedPlan, 'Link'))} className="w-full h-full object-cover" alt="I"/></div>
                 <h3 className="text-2xl font-black text-white">{getPProp(selectedPlan, 'Name')}</h3>
@@ -386,11 +396,11 @@ export default function App() {
                 <div className="text-3xl font-black text-white">{getPProp(selectedPlan, 'Price')} Ks</div>
             </div>
             <div className="mb-10">
-                <label className="block text-slate-500 text-[10px] font-black uppercase ml-2 mb-2 tracking-widest">Telegram / Phone Number</label>
+                <label className="block text-slate-500 text-[10px] font-black uppercase ml-2 mb-2 tracking-widest">Telegram @ID / Phone Number</label>
                 <input type="text" placeholder="ဆက်သွယ်ရန် အချက်အလက်" className="w-full bg-[#112240] border border-blue-900/50 p-5 rounded-2xl outline-none focus:ring-2 ring-blue-500/30 text-white" value={contactInfo} onChange={e => setContactInfo(e.target.value)} />
             </div>
-            <button onClick={handleOrder} disabled={loading || !contactInfo || !user} className="w-full bg-blue-600 py-5 rounded-2xl font-black shadow-xl active:scale-95 disabled:opacity-50 transition-all flex items-center justify-center gap-3 text-lg">
-              {loading ? <Loader2 className="animate-spin" /> : <><Send size={20}/> Send Order Request</>}
+            <button onClick={handleOrder} disabled={loading || !contactInfo || !user} className="w-full bg-blue-600 py-5 rounded-2xl font-black shadow-xl active:scale-95 disabled:opacity-50 transition-all flex items-center justify-center gap-3 text-lg text-white">
+              {loading ? <Loader2 className="animate-spin text-white" /> : <><Send size={20}/> Confirm Order Now</>}
             </button>
             <BottomNav />
           </div>
@@ -418,7 +428,7 @@ export default function App() {
                         <p className="flex justify-between"><span className="text-slate-500 uppercase font-bold tracking-tighter">Contact:</span> <span className="text-blue-400 font-black">{o.contact}</span></p>
                         <p className="flex justify-between"><span className="text-slate-500 uppercase font-bold tracking-tighter">User:</span> <span className="text-slate-300">{o.userName}</span></p>
                     </div>
-                    {o.status === 'Pending' && <button onClick={() => updateStatus(o.id, 'Completed')} className="w-full bg-blue-600 py-3.5 rounded-xl font-black text-xs shadow-lg active:scale-95 transition-all">Mark as Completed</button>}
+                    {o.status === 'Pending' && <button onClick={() => updateStatus(o.id, 'Completed')} className="w-full bg-blue-600 py-3.5 rounded-xl font-black text-xs shadow-lg active:scale-95 transition-all text-white">Mark as Completed</button>}
                     </div>
                 ))}
                 </div>
@@ -429,13 +439,13 @@ export default function App() {
                             <div className="flex items-center gap-4">
                                 <img src={m.photoURL || "https://placehold.co/100"} className="w-12 h-12 rounded-full border-2 border-blue-600/30" alt="M"/>
                                 <div className="flex-1 overflow-hidden">
-                                    <h4 className="font-bold text-sm truncate">{m.name}</h4>
+                                    <h4 className="font-bold text-sm truncate text-white">{m.name}</h4>
                                     <p className="text-[10px] text-slate-500 truncate">{m.email}</p>
                                 </div>
                                 <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-[8px] font-black uppercase shadow-sm">{m.tier}</span>
                             </div>
                             <div className="grid grid-cols-3 gap-2">
-                                <button onClick={() => updateMemberTier(m.uid, 'Standard')} className="bg-slate-800 py-2 rounded-lg text-[8px] font-bold uppercase active:scale-95 transition-all">Standard</button>
+                                <button onClick={() => updateMemberTier(m.uid, 'Standard')} className="bg-slate-800 py-2 rounded-lg text-[8px] font-bold uppercase active:scale-95 transition-all text-white">Standard</button>
                                 <button onClick={() => updateMemberTier(m.uid, 'VIP')} className="bg-yellow-600/10 text-yellow-500 py-2 rounded-lg text-[8px] font-bold uppercase border border-yellow-600/20 active:scale-95 transition-all">VIP</button>
                                 <button onClick={() => updateMemberTier(m.uid, 'Reseller')} className="bg-blue-600/10 text-blue-400 py-2 rounded-lg text-[8px] font-bold uppercase border border-blue-600/20 active:scale-95 transition-all">Reseller</button>
                             </div>
@@ -449,18 +459,18 @@ export default function App() {
 
         {/* --- PROFILE --- */}
         {view === 'profile' && (
-            <div className="p-8 text-center flex flex-col flex-1 items-center justify-center pb-32 overflow-y-auto text-white">
+            <div className="p-8 text-center flex flex-col flex-1 items-center justify-center pb-32 overflow-y-auto">
                 {user ? (
                     <div className="w-full max-w-sm flex flex-col items-center">
                         <div className="w-24 h-24 rounded-full border-4 border-blue-600 p-1 mb-6 shadow-2xl relative">
                             <img src={user.photoURL} className="rounded-full w-full h-full" alt="U"/>
-                            <div className="absolute -bottom-1 -right-1 bg-blue-600 p-2 rounded-full border-4 border-[#0a192f] shadow-lg"><BadgeCheck size={18}/></div>
+                            <div className="absolute -bottom-1 -right-1 bg-blue-600 p-2 rounded-full border-4 border-[#0a192f] shadow-lg"><BadgeCheck size={18} className="text-white"/></div>
                         </div>
                         {isEditingProfile ? (
                             <div className="w-full space-y-4 mb-10 text-left">
                                 <div><label className="block text-slate-500 text-[10px] font-black uppercase ml-2 mb-1 tracking-widest">Display Name</label><input type="text" className="w-full bg-[#112240] border border-blue-500/30 p-4 rounded-2xl outline-none text-sm text-white" value={editName} onChange={e => setEditName(e.target.value)} /></div>
                                 <div><label className="block text-slate-500 text-[10px] font-black uppercase ml-2 mb-1 tracking-widest">Contact Info</label><input type="text" className="w-full bg-[#112240] border border-blue-500/30 p-4 rounded-2xl outline-none text-sm text-white" value={editContact} onChange={e => setEditContact(e.target.value)} /></div>
-                                <div className="grid grid-cols-2 gap-4"><button onClick={() => setIsEditingProfile(false)} className="bg-slate-800 py-4 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 transition-all"><X size={16}/> Cancel</button><button onClick={handleUpdateProfile} className="bg-blue-600 py-4 rounded-2xl font-black text-xs flex items-center justify-center gap-2 shadow-lg transition-all"><Save size={16}/> Update</button></div>
+                                <div className="grid grid-cols-2 gap-4"><button onClick={() => setIsEditingProfile(false)} className="bg-slate-800 py-4 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 transition-all text-white"><X size={16}/> Cancel</button><button onClick={handleUpdateProfile} className="bg-blue-600 py-4 rounded-2xl font-black text-xs flex items-center justify-center gap-2 shadow-lg transition-all text-white"><Save size={16}/> Update</button></div>
                             </div>
                         ) : (
                             <>
@@ -483,7 +493,7 @@ export default function App() {
         {/* --- HISTORY --- */}
         {view === 'customer_dash' && (
           <div className="p-8 text-left flex flex-col flex-1 pb-32 overflow-y-auto text-white">
-            <h2 className="text-3xl font-black mb-1 text-left">Purchase History</h2>
+            <h2 className="text-3xl font-black mb-1 text-left">My History</h2>
             <p className="text-slate-500 text-sm mb-8 text-left">Records of your orders</p>
             <div className="space-y-4">
                 {myOrders.map(o => (
@@ -506,9 +516,9 @@ export default function App() {
         {view === 'order_success' && (
           <div className="flex-1 flex flex-col items-center justify-center p-10 text-center text-white bg-[#0a192f]">
             <div className="w-24 h-24 bg-green-500/10 rounded-full flex items-center justify-center mb-8 border border-green-500/20 shadow-2xl animate-pulse"><CheckCircle2 size={60} className="text-green-500" /></div>
-            <h2 className="text-4xl font-black mb-4 tracking-tighter uppercase">Success!</h2>
-            <p className="text-slate-400 mb-10 text-sm italic text-center leading-relaxed">Your order has been placed. <br/> Admin will contact you soon.</p>
-            <button onClick={() => setView('customer_dash')} className="w-full bg-blue-600 py-5 rounded-2xl font-black shadow-xl text-lg active:scale-95 transition-all">View History</button>
+            <h2 className="text-4xl font-black mb-4 tracking-tighter uppercase text-white">Success!</h2>
+            <p className="text-slate-400 mb-10 text-sm italic text-center leading-relaxed">အော်ဒါတင်ခြင်း အောင်မြင်ပါတယ်ရှင်။ <br/> Admin မှ စစ်ဆေးပြီး Telegram မှ ဆက်သွယ်ပါမည်။</p>
+            <button onClick={() => setView('customer_dash')} className="w-full bg-blue-600 py-5 rounded-2xl font-black shadow-xl text-lg active:scale-95 transition-all text-white">History ကြည့်မည်</button>
           </div>
         )}
 
