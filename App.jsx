@@ -75,50 +75,52 @@ export default function App() {
     { id: 'Gsm reseller', name: 'GSM Reseller', icon: <Settings size={20} /> }
   ];
 
-  // --- (၂) REFINED AUTHENTICATION FLOW ---
+  // --- (၂) REFINED AUTHENTICATION FLOW (PREVENTS REDIRECT LOOP) ---
   useEffect(() => {
     let isMounted = true;
 
     const initAuth = async () => {
       try {
-        // (A) Persistence ကို အရင်ဆုံး force လုပ်မည်
+        // A. Persistence ကို အရင်ဆုံး Force လုပ်မည်
         await setPersistence(auth, browserLocalPersistence);
         
-        // (B) Redirect Result ကို စစ်ဆေးမည် (Login page သို့ ပြန်ကျခြင်းကို တားဆီးရန်)
+        // B. Redirect Login ရလဒ်ကို စစ်ဆေးမည်
         const result = await getRedirectResult(auth);
         if (result?.user && isMounted) {
           setUser(result.user);
           await syncProfile(result.user);
           setView('home');
+          setLoading(false);
+          return; // Redirect result တွေ့လျှင် ဒီမှာတင် ရပ်မည်
         }
       } catch (error) {
-        console.error("Auth Init Error:", error);
+        console.error("Auth Initialization Error:", error);
       }
+
+      // C. Auth State ပြောင်းလဲမှုကို စောင့်ကြည့်မည် (Redirect Result မတွေ့မှသာ ၎င်းကို အသုံးပြုမည်)
+      const unsubscribe = onAuthStateChanged(auth, async (currUser) => {
+        if (isMounted) {
+          if (currUser) {
+            setUser(currUser);
+            await syncProfile(currUser);
+            setView('home');
+          } else {
+            setUser(null);
+            setProfile(null);
+            setView('welcome');
+          }
+          setLoading(false);
+        }
+      });
+
+      return unsubscribe;
     };
 
-    initAuth();
-
-    // (C) Auth state ပြောင်းလဲမှုကို စောင့်ကြည့်မည်
-    const unsubscribe = onAuthStateChanged(auth, async (currUser) => {
-      if (currUser) {
-        if (isMounted) {
-          setUser(currUser);
-          await syncProfile(currUser);
-          setView('home');
-        }
-      } else {
-        if (isMounted) {
-          setUser(null);
-          setProfile(null);
-          // Redirect စစ်ဆေးနေစဉ်အတွင်း welcome သို့ ချက်ချင်းမပို့ရန် check result result logic က ကိုင်တွယ်မည်
-        }
-      }
-      if (isMounted) setLoading(false);
-    });
+    const unsubscribePromise = initAuth();
 
     return () => {
       isMounted = false;
-      unsubscribe();
+      unsubscribePromise.then(unsub => unsub && unsub());
     };
   }, []);
 
@@ -447,7 +449,7 @@ export default function App() {
 
         {/* --- PROFILE --- */}
         {view === 'profile' && (
-            <div className="p-8 text-center flex flex-col flex-1 items-center justify-center pb-32 overflow-y-auto">
+            <div className="p-8 text-center flex flex-col flex-1 items-center justify-center pb-32 overflow-y-auto text-white">
                 {user ? (
                     <div className="w-full max-w-sm flex flex-col items-center">
                         <div className="w-24 h-24 rounded-full border-4 border-blue-600 p-1 mb-6 shadow-2xl relative">
@@ -480,8 +482,8 @@ export default function App() {
 
         {/* --- HISTORY --- */}
         {view === 'customer_dash' && (
-          <div className="p-8 text-left flex flex-col flex-1 pb-32 overflow-y-auto">
-            <h2 className="text-3xl font-black mb-1 text-left text-white">Purchase History</h2>
+          <div className="p-8 text-left flex flex-col flex-1 pb-32 overflow-y-auto text-white">
+            <h2 className="text-3xl font-black mb-1 text-left">Purchase History</h2>
             <p className="text-slate-500 text-sm mb-8 text-left">Records of your orders</p>
             <div className="space-y-4">
                 {myOrders.map(o => (
