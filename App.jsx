@@ -17,6 +17,7 @@ import {
   onSnapshot, 
   updateDoc 
 } from 'firebase/firestore';
+
 import { 
   ShoppingBag, Gamepad2, Smartphone, BookOpen, Settings, 
   History, ChevronRight, ArrowLeft, CheckCircle2, Search, 
@@ -24,7 +25,7 @@ import {
   BadgeCheck, Clock, Edit3, Save, X
 } from 'lucide-react';
 
-// --- (၁) FIREBASE CONFIGURATION (လူကြီးမင်း ပေးထားသော REAL KEYS များ ထည့်သွင်းထားသည်) ---
+// --- (၁) FIREBASE CONFIGURATION ---
 const firebaseConfig = {
   apiKey: "AIzaSyCBWTPAr0xWwpN9ASinAQWK_incw8kD-v4",
   authDomain: "mm-tech-store.firebaseapp.com",
@@ -35,7 +36,7 @@ const firebaseConfig = {
   measurementId: "G-HTJFLBCRDP"
 };
 
-// Initialize Firebase
+// Initialize Firebase Services
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
@@ -44,7 +45,7 @@ const appId = "mm-tech-store";
 
 // --- CONFIGURATION ---
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyC1MECq8ZNzdj-RxmBaMcFfSqVk9Ijt9uuRW-szeukWuCoNBhywDz0k7W1r5mCvjhR/exec"; 
-const ADMIN_EMAILS = ["kohtet107576@gmail.com"]; // လူကြီးမင်း၏ Admin Gmail
+const ADMIN_EMAILS = ["kohtet107576@gmail.com"]; 
 
 export default function App() {
   const [view, setView] = useState('welcome');
@@ -73,7 +74,7 @@ export default function App() {
     { id: 'Gsm reseller', name: 'GSM Reseller', icon: <Settings size={20} /> }
   ];
 
-  // --- (၂) AUTH & PROFILE LOGIC ---
+  // --- (၂) AUTHENTICATION & PROFILE SYNC ---
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currUser) => {
       if (currUser) {
@@ -82,40 +83,45 @@ export default function App() {
       } else {
         setUser(null);
         setProfile(null);
+        setLoading(false);
       }
-      setLoading(false);
     });
     return () => unsubscribe();
   }, []);
 
   const syncProfile = async (u) => {
     const docRef = doc(db, 'artifacts', appId, 'users', u.uid, 'profile', 'data');
-    const docSnap = await getDoc(docRef);
-    
-    let currentProfile;
-    if (docSnap.exists()) {
-      currentProfile = docSnap.data();
-    } else {
-      currentProfile = {
-        name: u.displayName,
-        email: u.email,
-        tier: 'Standard', 
-        role: ADMIN_EMAILS.includes(u.email) ? 'admin' : 'user',
-        uid: u.uid,
-        contact: '',
-        photoURL: u.photoURL,
-        createdAt: new Date().toISOString()
-      };
-      await setDoc(docRef, currentProfile);
-    }
+    try {
+      const docSnap = await getDoc(docRef);
+      let currentProfile;
+      if (docSnap.exists()) {
+        currentProfile = docSnap.data();
+      } else {
+        currentProfile = {
+          name: u.displayName || "User",
+          email: u.email,
+          tier: 'Standard', 
+          role: ADMIN_EMAILS.includes(u.email) ? 'admin' : 'user',
+          uid: u.uid,
+          contact: '',
+          photoURL: u.photoURL,
+          createdAt: new Date().toISOString()
+        };
+        await setDoc(docRef, currentProfile);
+      }
 
-    const memberRef = doc(db, 'artifacts', appId, 'public', 'data', 'members', u.uid);
-    await setDoc(memberRef, currentProfile, { merge: true });
-    
-    setProfile(currentProfile);
-    setEditName(currentProfile.name);
-    setEditContact(currentProfile.contact || '');
-    setContactInfo(currentProfile.contact || '');
+      const memberRef = doc(db, 'artifacts', appId, 'public', 'data', 'members', u.uid);
+      await setDoc(memberRef, currentProfile, { merge: true });
+      
+      setProfile(currentProfile);
+      setEditName(currentProfile.name);
+      setEditContact(currentProfile.contact || '');
+      setContactInfo(currentProfile.contact || '');
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleLogin = async () => {
@@ -173,7 +179,7 @@ export default function App() {
 
   // --- (၄) ORDER LOGIC ---
   const handleOrder = async () => {
-    if (!contactInfo) return;
+    if (!contactInfo || !user) return;
     setLoading(true);
     const orderData = {
       userId: user.uid,
@@ -189,7 +195,7 @@ export default function App() {
     };
     try {
       await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'orders'), orderData);
-      fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(orderData) });
+      fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(orderData) }).catch(() => {});
       setView('order_success');
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
@@ -235,16 +241,16 @@ export default function App() {
 
   return (
     <div className="bg-[#0a192f] min-h-screen text-white font-sans select-none overflow-x-hidden">
-      <div className="max-w-2xl mx-auto w-full min-h-screen flex flex-col relative border-x border-blue-900/10">
+      <div className="max-w-2xl mx-auto w-full min-h-screen flex flex-col relative border-x border-blue-900/10 shadow-2xl">
         
         {view === 'welcome' && (
           <div className="flex flex-col flex-1 items-center justify-between py-20 px-8 text-center">
             <div className="flex flex-col items-center">
                 <div className="w-32 h-32 bg-[#112240] rounded-[2.5rem] border border-blue-500/20 shadow-2xl mb-8 flex items-center justify-center overflow-hidden">
-                    <img src="https://placehold.co/300x300/112240/ffffff?text=MM+TECH" className="w-full h-full object-cover" />
+                    <img src="https://placehold.co/300x300/112240/ffffff?text=MM+TECH" className="w-full h-full object-cover" alt="Logo" />
                 </div>
                 <h1 className="text-4xl font-black mb-3">MM Tech Store</h1>
-                <p className="text-slate-400 text-sm max-w-xs italic text-center">Premium Digital Services & Gaming Hub</p>
+                <p className="text-slate-400 text-sm max-w-xs italic text-center leading-relaxed">Myanmar's leading digital service platform.</p>
             </div>
             <div className="w-full max-w-xs space-y-4">
                 <button onClick={handleLogin} className="w-full bg-white text-black py-5 rounded-2xl font-black shadow-xl flex items-center justify-center gap-3 active:scale-95 transition-all">
@@ -261,11 +267,11 @@ export default function App() {
             <div className="bg-[#0d1b33] p-6 rounded-b-[2.5rem] shadow-xl border-b border-blue-900/30 sticky top-0 z-30">
               <div className="flex justify-between items-center mb-6 text-left">
                 <div><p className="text-blue-500 text-[10px] font-black uppercase tracking-widest">Premium Store</p><h2 className="text-2xl font-black">Welcome, {profile?.name.split(' ')[0] || 'Guest'}</h2></div>
-                {user && <div className="w-10 h-10 rounded-full border-2 border-blue-600 p-0.5"><img src={user.photoURL} className="rounded-full" alt="U"/></div>}
+                {user && <div className="w-10 h-10 rounded-full border-2 border-blue-600 p-0.5 shadow-lg overflow-hidden"><img src={user.photoURL} className="rounded-full w-full h-full" alt="U"/></div>}
               </div>
               <div className="relative"><Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18}/><input type="text" placeholder="Search products..." className="w-full bg-[#0a192f] border border-blue-900/50 text-white py-4 pl-12 pr-4 rounded-2xl outline-none" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} /></div>
             </div>
-            <div className="px-5 py-8 pb-32">
+            <div className="px-5 py-8 pb-32 overflow-y-auto">
                 <div className="grid grid-cols-2 gap-4 mb-10">
                   {categories.map(c => (
                     <button key={c.id} onClick={() => { setSelectedCat(c.id); setView('category_view'); }} className="bg-[#112240] p-5 rounded-[2rem] flex flex-col items-center gap-3 border border-transparent active:border-blue-500 shadow-lg">
@@ -277,7 +283,7 @@ export default function App() {
                 <h3 className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-6 ml-2 text-left">Popular Items</h3>
                 <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
                   {groupedProducts.filter(g => searchQuery === '' || g.name.toLowerCase().includes(searchQuery.toLowerCase())).map(group => (
-                    <div key={group.name} onClick={() => { setSelectedGroup(group); setView('group_details'); }} className="bg-[#112240] p-2 rounded-2xl border border-blue-900/20 active:scale-95 text-center flex flex-col cursor-pointer group shadow-md">
+                    <div key={group.name} onClick={() => { setSelectedGroup(group); setView('group_details'); }} className="bg-[#112240] p-2.5 rounded-2xl border border-blue-900/20 active:scale-95 text-center flex flex-col cursor-pointer group shadow-md">
                       <div className="aspect-square bg-[#0a192f] rounded-xl overflow-hidden border border-blue-900/30 mb-2 relative"><img src={formatImg(group.image)} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt="I"/><div className="absolute top-1 right-1 bg-blue-600 px-1.5 py-0.5 rounded-md text-[7px] font-black">{group.plans.length} Items</div></div>
                       <h4 className="text-[10px] font-bold truncate px-1">{group.name}</h4>
                       <span className="text-blue-500 text-[8px] font-black uppercase mt-1">View Info</span>
@@ -341,13 +347,17 @@ export default function App() {
         )}
 
         {view === 'customer_dash' && (
-          <div className="p-8 text-left flex flex-col flex-1 pb-32">
-            <h2 className="text-3xl font-black mb-1">My Orders</h2>
-            <p className="text-slate-500 text-sm mb-8">Purchase History</p>
+          <div className="p-8 text-left flex flex-col flex-1 pb-32 overflow-y-auto">
+            <h2 className="text-3xl font-black mb-1 text-left">My Orders</h2>
+            <p className="text-slate-500 text-sm mb-8 text-left">Purchase History</p>
             <div className="space-y-4">
                 {myOrders.map(o => (
                   <div key={o.id} className="bg-[#112240] p-5 rounded-3xl border border-blue-900/30 flex justify-between items-center shadow-lg">
-                    <div><h4 className="font-bold text-sm">{o.productName}</h4><p className="text-blue-500 font-bold text-[10px]">{o.plan} • {o.price} Ks</p><p className="text-[9px] text-slate-500 mt-1">{o.date}</p></div>
+                    <div className="text-left">
+                        <h4 className="font-bold text-sm text-white">{o.productName}</h4>
+                        <p className="text-blue-500 font-bold text-[10px]">{o.plan} • {o.price} Ks</p>
+                        <p className="text-[9px] text-slate-500 mt-1 flex items-center gap-1"><Clock size={10}/> {o.date}</p>
+                    </div>
                     <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase ${o.status === 'Completed' ? 'bg-green-500/10 text-green-500' : 'bg-yellow-500/10 text-yellow-500'}`}>{o.status}</span>
                   </div>
                 ))}
@@ -358,7 +368,7 @@ export default function App() {
         )}
 
         {view === 'admin_dash' && profile?.role === 'admin' && (
-          <div className="p-8 text-left flex flex-col flex-1 pb-32">
+          <div className="p-8 text-left flex flex-col flex-1 pb-32 overflow-y-auto">
             <div className="flex justify-between items-center mb-6">
                 <h2 className="text-3xl font-black">Admin Panel</h2>
                 <div className="flex bg-[#112240] p-1 rounded-xl border border-blue-900/30">
@@ -385,7 +395,7 @@ export default function App() {
             ) : (
                 <div className="space-y-4">
                     {allMembers.map(m => (
-                        <div key={m.uid} className="bg-[#112240] p-5 rounded-3xl border border-blue-900/30 flex flex-col gap-4 text-left">
+                        <div key={m.uid} className="bg-[#112240] p-5 rounded-3xl border border-blue-900/30 flex flex-col gap-4 text-left shadow-lg">
                             <div className="flex items-center gap-4">
                                 <img src={m.photoURL || "https://placehold.co/100"} className="w-12 h-12 rounded-full border border-blue-600/20" alt="M"/>
                                 <div className="flex-1 overflow-hidden">
@@ -395,9 +405,9 @@ export default function App() {
                                 <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-[8px] font-black uppercase">{m.tier}</span>
                             </div>
                             <div className="grid grid-cols-3 gap-2">
-                                <button onClick={() => updateMemberTier(m.uid, 'Standard')} className="bg-slate-800 py-2 rounded-lg text-[8px] font-bold uppercase hover:bg-slate-700">Standard</button>
-                                <button onClick={() => updateMemberTier(m.uid, 'VIP')} className="bg-yellow-600/20 text-yellow-500 py-2 rounded-lg text-[8px] font-bold uppercase border border-yellow-600/20">VIP</button>
-                                <button onClick={() => updateMemberTier(m.uid, 'Reseller')} className="bg-blue-600/20 text-blue-400 py-2 rounded-lg text-[8px] font-bold uppercase border border-blue-600/20">Reseller</button>
+                                <button onClick={() => updateMemberTier(m.uid, 'Standard')} className="bg-slate-800 py-2 rounded-lg text-[8px] font-bold uppercase active:scale-95 transition-all">Standard</button>
+                                <button onClick={() => updateMemberTier(m.uid, 'VIP')} className="bg-yellow-600/10 text-yellow-500 py-2 rounded-lg text-[8px] font-bold uppercase border border-yellow-600/20 active:scale-95 transition-all">VIP</button>
+                                <button onClick={() => updateMemberTier(m.uid, 'Reseller')} className="bg-blue-600/10 text-blue-400 py-2 rounded-lg text-[8px] font-bold uppercase border border-blue-600/20 active:scale-95 transition-all">Reseller</button>
                             </div>
                         </div>
                     ))}
@@ -417,8 +427,8 @@ export default function App() {
                         </div>
                         {isEditingProfile ? (
                             <div className="w-full space-y-4 mb-10 text-left">
-                                <div><label className="block text-slate-500 text-[10px] font-black uppercase ml-2 mb-1">Display Name</label><input type="text" className="w-full bg-[#112240] border border-blue-500/30 p-4 rounded-2xl outline-none text-sm" value={editName} onChange={e => setEditName(e.target.value)} /></div>
-                                <div><label className="block text-slate-500 text-[10px] font-black uppercase ml-2 mb-1">Telegram / Phone</label><input type="text" className="w-full bg-[#112240] border border-blue-500/30 p-4 rounded-2xl outline-none text-sm" value={editContact} onChange={e => setEditContact(e.target.value)} /></div>
+                                <div><label className="block text-slate-500 text-[10px] font-black uppercase ml-2 mb-1">Display Name</label><input type="text" className="w-full bg-[#112240] border border-blue-500/30 p-4 rounded-2xl outline-none text-sm text-white" value={editName} onChange={e => setEditName(e.target.value)} /></div>
+                                <div><label className="block text-slate-500 text-[10px] font-black uppercase ml-2 mb-1">Telegram / Phone</label><input type="text" className="w-full bg-[#112240] border border-blue-500/30 p-4 rounded-2xl outline-none text-sm text-white" value={editContact} onChange={e => setEditContact(e.target.value)} /></div>
                                 <div className="grid grid-cols-2 gap-4"><button onClick={() => setIsEditingProfile(false)} className="bg-slate-800 py-4 rounded-2xl font-bold text-xs flex items-center justify-center gap-2"><X size={16}/> Cancel</button><button onClick={handleUpdateProfile} className="bg-blue-600 py-4 rounded-2xl font-black text-xs flex items-center justify-center gap-2"><Save size={16}/> Save</button></div>
                             </div>
                         ) : (
@@ -426,13 +436,13 @@ export default function App() {
                                 <h2 className="text-2xl font-black mb-1">{profile?.name}</h2>
                                 <p className="text-blue-400 text-sm font-bold mb-8">{user.email}</p>
                                 <div className="bg-[#112240] w-full p-8 rounded-[2.5rem] border border-blue-900/30 mb-8 text-left shadow-xl">
-                                    <div className="flex justify-between items-center py-4 border-b border-blue-900/20"><span className="text-slate-400 font-bold text-[10px] uppercase tracking-widest">Membership</span><span className="bg-blue-600 text-white px-4 py-1 rounded-full text-[10px] font-black uppercase">{profile?.tier}</span></div>
+                                    <div className="flex justify-between items-center py-4 border-b border-blue-900/20"><span className="text-slate-400 font-bold text-[10px] uppercase tracking-widest">Membership</span><span className="bg-blue-600 text-white px-4 py-1 rounded-full text-[10px] font-black uppercase shadow-sm">{profile?.tier}</span></div>
                                     <div className="flex justify-between items-center py-4 border-b border-blue-900/20"><span className="text-slate-400 font-bold text-[10px] uppercase tracking-widest">Contact</span><span className="text-white text-sm font-bold">{profile?.contact || 'Not set'}</span></div>
-                                    <button onClick={() => setIsEditingProfile(true)} className="w-full mt-4 text-blue-500 text-[10px] font-black uppercase flex items-center justify-center gap-2 py-2 rounded-xl transition-all"><Edit3 size={14}/> Edit Profile Details</button>
+                                    <button onClick={() => setIsEditingProfile(true)} className="w-full mt-4 text-blue-500 text-[10px] font-black uppercase flex items-center justify-center gap-2 py-2 rounded-xl transition-all hover:bg-blue-600/10"><Edit3 size={14}/> Edit Profile Details</button>
                                 </div>
                             </>
                         )}
-                        <button onClick={async () => { await signOut(auth); setView('welcome'); }} className="text-red-500 font-black text-sm flex items-center gap-2 hover:bg-red-500/10 px-8 py-3 rounded-2xl transition-all border border-red-500/20"><LogOut size={18}/> Sign out</button>
+                        <button onClick={async () => { await signOut(auth); setView('welcome'); }} className="text-red-500 font-black text-sm flex items-center gap-2 hover:bg-red-500/10 px-10 py-3 rounded-2xl transition-all border border-red-500/20"><LogOut size={18}/> Sign out</button>
                     </div>
                 ) : <button onClick={handleLogin} className="bg-white text-black px-10 py-5 rounded-2xl font-black">Login with Google</button>}
                 <Nav />
@@ -441,9 +451,10 @@ export default function App() {
 
         {view === 'order_success' && (
           <div className="flex-1 flex flex-col items-center justify-center p-10 text-center">
-            <div className="w-24 h-24 bg-green-500/10 rounded-full flex items-center justify-center mb-8 border border-green-500/20"><CheckCircle2 size={60} className="text-green-500 animate-bounce" /></div>
-            <h2 className="text-4xl font-black mb-4 tracking-tighter">SUCCESS!</h2>
-            <button onClick={() => setView('customer_dash')} className="w-full bg-blue-600 py-5 rounded-2xl font-black shadow-xl text-lg">History ကြည့်မည်</button>
+            <div className="w-24 h-24 bg-green-500/10 rounded-full flex items-center justify-center mb-8 border border-green-500/20 shadow-2xl animate-pulse"><CheckCircle2 size={60} className="text-green-500" /></div>
+            <h2 className="text-4xl font-black mb-4 tracking-tighter uppercase">Success!</h2>
+            <p className="text-slate-400 mb-10 text-sm italic">အော်ဒါတင်ခြင်း အောင်မြင်ပါတယ်ရှင်။</p>
+            <button onClick={() => setView('customer_dash')} className="w-full bg-blue-600 py-5 rounded-2xl font-black shadow-xl text-lg active:scale-95 transition-all">History ကြည့်မည်</button>
           </div>
         )}
 
