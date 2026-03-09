@@ -6,6 +6,8 @@ import {
   getRedirectResult,
   GoogleAuthProvider, 
   onAuthStateChanged,
+  setPersistence,
+  browserLocalPersistence,
   signOut 
 } from 'firebase/auth';
 import { 
@@ -26,7 +28,7 @@ import {
   BadgeCheck, Clock, Edit3, Save, X
 } from 'lucide-react';
 
-// --- (၁) FIREBASE CONFIGURATION (လူကြီးမင်း၏ Keys များ) ---
+// --- (၁) FIREBASE CONFIGURATION ---
 const firebaseConfig = {
   apiKey: "AIzaSyCBWTPAr0xWwpN9ASinAQWK_incw8kD-v4",
   authDomain: "mm-tech-store.firebaseapp.com",
@@ -37,14 +39,12 @@ const firebaseConfig = {
   measurementId: "G-HTJFLBCRDP"
 };
 
-// Firebase အား စတင်အသုံးပြုခြင်း
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const googleProvider = new GoogleAuthProvider();
 const appId = "mm-tech-store"; 
 
-// --- CONFIGURATION ---
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyC1MECq8ZNzdj-RxmBaMcFfSqVk9Ijt9uuRW-szeukWuCoNBhywDz0k7W1r5mCvjhR/exec"; 
 const ADMIN_EMAILS = ["kohtet107576@gmail.com"]; 
 
@@ -52,7 +52,7 @@ export default function App() {
   const [view, setView] = useState('welcome');
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
-  const [loading, setLoading] = useState(true); // အစကတည်းက loading လုပ်ထားမည်
+  const [loading, setLoading] = useState(true);
   const [products, setProducts] = useState([]);
   const [myOrders, setMyOrders] = useState([]);
   const [allOrders, setAllOrders] = useState([]); 
@@ -75,43 +75,44 @@ export default function App() {
     { id: 'Gsm reseller', name: 'GSM Reseller', icon: <Settings size={20} /> }
   ];
 
-  // --- (၂) AUTHENTICATION & IMPROVED LOGIN HANDLING ---
+  // --- (၂) AUTHENTICATION & PERSISTENCE FIX ---
   useEffect(() => {
-    // Redirect ပြီး ပြန်လာသည့် ရလဒ်ကို အရင်စစ်ဆေးမည်
     const initAuth = async () => {
       try {
+        // အကောင့်ဝင်ထားမှုကို Browser တွင် အမြဲမှတ်မိနေစေရန် သတ်မှတ်ခြင်း
+        await setPersistence(auth, browserLocalPersistence);
+        
+        // Redirect Login ရလဒ်ကို စစ်ဆေးခြင်း
         const result = await getRedirectResult(auth);
         if (result?.user) {
-          // အကယ်၍ Login အသစ်ဝင်ခြင်းဖြစ်ပါက Home သို့ တိုက်ရိုက်ပို့မည်
           setUser(result.user);
           await syncProfile(result.user);
           setView('home');
         }
       } catch (error) {
-        console.error("Auth Redirect Error:", error);
+        console.error("Auth Init Error:", error);
       }
     };
     initAuth();
 
-    // လက်ရှိ Auth အခြေအနေကို စစ်ဆေးခြင်း
     const unsubscribe = onAuthStateChanged(auth, async (currUser) => {
       if (currUser) {
         setUser(currUser);
         await syncProfile(currUser);
-        // User ရှိနေလျှင် Welcome Screen ကို မပြဘဲ Home သို့ တန်းသွားမည်
         setView('home');
       } else {
         setUser(null);
         setProfile(null);
       }
-      // logic များအားလုံး ပြီးမှသာ loading ကို ပိတ်မည်
-      setLoading(false);
+      // logic အားလုံးပြီးမှ Loading ကို ပိတ်မည်
+      setTimeout(() => setLoading(false), 1000);
     });
 
     return () => unsubscribe();
   }, []);
 
   const syncProfile = async (u) => {
+    if (!u) return;
     const docRef = doc(db, 'artifacts', appId, 'users', u.uid, 'profile', 'data');
     try {
       const docSnap = await getDoc(docRef);
@@ -119,7 +120,6 @@ export default function App() {
       if (docSnap.exists()) {
         currentProfile = docSnap.data();
       } else {
-        // User အသစ်ဆိုလျှင် အချက်အလက်များ အလိုအလျောက် သိမ်းဆည်းမည် (Sign Up Process)
         currentProfile = {
           name: u.displayName || "User",
           email: u.email,
@@ -147,7 +147,7 @@ export default function App() {
 
   const handleLogin = async () => {
     try {
-      setLoading(true); // Login စလုပ်ကတည်းက loading ပြမည်
+      setLoading(true);
       await signInWithRedirect(auth, googleProvider);
     } catch (e) { 
       console.error("Login Trigger Error:", e); 
@@ -169,7 +169,7 @@ export default function App() {
     finally { setLoading(false); }
   };
 
-  // --- (၃) DATA FETCHING & REAL-TIME UPDATES ---
+  // --- (၃) DATA FETCHING ---
   useEffect(() => {
     const fetchProducts = async () => {
       try {
@@ -189,14 +189,14 @@ export default function App() {
       const sorted = docs.sort((a, b) => b.timestamp - a.timestamp);
       setAllOrders(sorted);
       setMyOrders(sorted.filter(o => o.userId === user.uid));
-    });
+    }, (err) => console.error(err));
 
     let unsubMembers = () => {};
     if (profile?.role === 'admin') {
       const qMembers = collection(db, 'artifacts', appId, 'public', 'data', 'members');
       unsubMembers = onSnapshot(qMembers, (snapshot) => {
         setAllMembers(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
-      });
+      }, (err) => console.error(err));
     }
     return () => { unsubOrders(); unsubMembers(); };
   }, [user, profile]);
@@ -261,11 +261,10 @@ export default function App() {
     </nav>
   );
 
-  // Loading Screen
   if (loading) return (
     <div className="min-h-screen bg-[#0a192f] flex flex-col items-center justify-center gap-4 text-white">
       <Loader2 className="animate-spin text-blue-500" size={40}/>
-      <p className="text-blue-400 text-xs font-black uppercase tracking-widest animate-pulse tracking-widest">Checking Access...</p>
+      <p className="text-blue-400 text-xs font-black uppercase tracking-widest animate-pulse">Synchronizing Data...</p>
     </div>
   );
 
@@ -273,7 +272,7 @@ export default function App() {
     <div className="bg-[#0a192f] min-h-screen text-white font-sans select-none overflow-x-hidden">
       <div className="max-w-2xl mx-auto w-full min-h-screen flex flex-col relative border-x border-blue-900/10 shadow-2xl">
         
-        {/* --- VIEW: WELCOME (User မရှိမှသာ ပြမည်) --- */}
+        {/* --- WELCOME --- */}
         {view === 'welcome' && !user && (
           <div className="flex flex-col flex-1 items-center justify-between py-20 px-8 text-center">
             <div className="flex flex-col items-center">
@@ -289,19 +288,19 @@ export default function App() {
                 </button>
                 <button onClick={() => setView('home')} className="w-full bg-slate-800/50 text-slate-400 py-4 rounded-2xl font-bold text-sm">Guest အနေဖြင့် ကြည့်မည်</button>
             </div>
-            <div className="text-[10px] uppercase font-bold tracking-[0.4em] text-slate-600 text-center">Secure Cloud Checkout</div>
+            <div className="text-[10px] uppercase font-bold tracking-[0.4em] text-slate-600 text-center">Cloud Identity Verified</div>
           </div>
         )}
 
-        {/* --- VIEW: HOME (User ရှိလျှင် သို့မဟုတ် Guest ဆိုလျှင် ပြမည်) --- */}
+        {/* --- HOME --- */}
         {(view === 'home' || user) && (
           <>
             <div className="bg-[#0d1b33] p-6 rounded-b-[2.5rem] shadow-xl border-b border-blue-900/30 sticky top-0 z-30">
               <div className="flex justify-between items-center mb-6 text-left">
-                <div><p className="text-blue-500 text-[10px] font-black uppercase tracking-widest">Premium Store</p><h2 className="text-2xl font-black">Welcome, {profile?.name.split(' ')[0] || user?.displayName?.split(' ')[0] || 'Guest'}</h2></div>
+                <div><p className="text-blue-500 text-[10px] font-black uppercase tracking-widest">Store Front</p><h2 className="text-2xl font-black">Hi, {profile?.name.split(' ')[0] || user?.displayName?.split(' ')[0] || 'Guest'}</h2></div>
                 {user && <div className="w-10 h-10 rounded-full border-2 border-blue-600 p-0.5 shadow-lg overflow-hidden"><img src={user.photoURL} className="rounded-full w-full h-full" alt="U"/></div>}
               </div>
-              <div className="relative"><Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18}/><input type="text" placeholder="Search digital services..." className="w-full bg-[#0a192f] border border-blue-900/50 text-white py-4 pl-12 pr-4 rounded-2xl outline-none focus:ring-1 ring-blue-500/20 text-sm" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} /></div>
+              <div className="relative"><Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18}/><input type="text" placeholder="Search services..." className="w-full bg-[#0a192f] border border-blue-900/50 text-white py-4 pl-12 pr-4 rounded-2xl outline-none focus:ring-1 ring-blue-500/20 text-sm" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} /></div>
             </div>
             <div className="px-5 py-8 pb-32 overflow-y-auto">
                 <div className="grid grid-cols-2 gap-4 mb-10">
@@ -312,11 +311,11 @@ export default function App() {
                     </button>
                   ))}
                 </div>
-                <h3 className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-6 ml-2 text-left">Popular Items</h3>
+                <h3 className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-6 ml-2 text-left">Popular Now</h3>
                 <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
                   {groupedProducts.filter(g => searchQuery === '' || g.name.toLowerCase().includes(searchQuery.toLowerCase())).map(group => (
                     <div key={group.name} onClick={() => { setSelectedGroup(group); setView('group_details'); }} className="bg-[#112240] p-2 rounded-2xl border border-blue-900/20 active:scale-95 text-center flex flex-col cursor-pointer group shadow-md">
-                      <div className="aspect-square bg-[#0a192f] rounded-xl overflow-hidden border border-blue-900/30 mb-2 relative"><img src={formatImg(group.image)} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt="I"/><div className="absolute top-1 right-1 bg-blue-600 px-1.5 py-0.5 rounded-md text-[7px] font-black">{group.plans.length} Items</div></div>
+                      <div className="aspect-square bg-[#0a192f] rounded-xl overflow-hidden border border-blue-900/30 mb-2 relative"><img src={formatImg(group.image)} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt="I"/><div className="absolute top-1 right-1 bg-blue-600 px-1.5 py-0.5 rounded-md text-[7px] font-black">{group.plans.length}</div></div>
                       <h4 className="text-[10px] font-bold truncate px-1 leading-tight">{group.name}</h4>
                       <span className="text-blue-500 text-[8px] font-black uppercase mt-1">View Store</span>
                     </div>
@@ -327,7 +326,7 @@ export default function App() {
           </>
         )}
 
-        {/* --- VIEW: CATEGORY VIEW --- */}
+        {/* --- CATEGORY VIEW --- */}
         {view === 'category_view' && (
           <div className="flex flex-col flex-1 pb-32">
             <header className="p-6 bg-[#112240] border-b border-blue-900/30 flex items-center gap-4 sticky top-0 z-30 shadow-lg text-white text-left">
@@ -343,13 +342,13 @@ export default function App() {
           </div>
         )}
 
-        {/* --- VIEW: GROUP DETAILS --- */}
+        {/* --- GROUP DETAILS --- */}
         {view === 'group_details' && (
           <div className="flex flex-col flex-1 overflow-hidden">
             <div className="relative h-[35vh] bg-[#112240] flex-shrink-0"><img src={formatImg(selectedGroup?.image)} className="w-full h-full object-cover opacity-60" alt="B"/><div className="absolute inset-0 bg-gradient-to-t from-[#0a192f] via-transparent to-transparent"></div><button onClick={() => setView('home')} className="absolute top-6 left-6 p-3 bg-black/40 backdrop-blur rounded-2xl border border-white/10 active:scale-90"><ArrowLeft size={20}/></button></div>
             <div className="px-8 -mt-16 relative z-10 flex-1 flex flex-col text-left overflow-y-auto pb-32">
                 <h2 className="text-4xl font-black mb-1 leading-tight tracking-tight">{selectedGroup?.name}</h2>
-                <p className="text-slate-400 text-sm mb-10 italic">Select your preferred plan</p>
+                <p className="text-slate-400 text-sm mb-10 italic">Select your package</p>
                 <div className="space-y-3">
                   {selectedGroup?.plans.map((p, i) => (
                     <button key={i} onClick={() => { setSelectedPlan(p); setView('checkout'); }} className="w-full bg-[#112240] p-5 rounded-3xl border border-blue-900/30 flex items-center justify-between active:border-blue-500 shadow-lg group">
@@ -363,10 +362,10 @@ export default function App() {
           </div>
         )}
 
-        {/* --- VIEW: CHECKOUT --- */}
+        {/* --- CHECKOUT --- */}
         {view === 'checkout' && (
           <div className="p-8 text-left flex flex-col flex-1 pb-32 overflow-y-auto">
-            <header className="flex items-center gap-4 mb-8 text-white"><button onClick={() => setView('group_details')} className="p-2 bg-[#112240] rounded-xl"><ArrowLeft size={20}/></button><h2 className="text-xl font-black">Checkout</h2></header>
+            <header className="flex items-center gap-4 mb-8 text-white"><button onClick={() => setView('group_details')} className="p-2 bg-[#112240] rounded-xl"><ArrowLeft size={20}/></button><h2 className="text-xl font-black">Confirm Order</h2></header>
             <div className="bg-[#112240] p-10 rounded-[3rem] border border-blue-900/30 mb-8 text-center shadow-2xl">
                 <div className="w-24 h-24 mx-auto mb-6 rounded-3xl overflow-hidden border-4 border-blue-600/20 shadow-xl"><img src={formatImg(getPProp(selectedPlan, 'Link'))} className="w-full h-full object-cover" alt="I"/></div>
                 <h3 className="text-2xl font-black">{getPProp(selectedPlan, 'Name')}</h3>
@@ -374,18 +373,17 @@ export default function App() {
                 <div className="text-3xl font-black text-white">{getPProp(selectedPlan, 'Price')} Ks</div>
             </div>
             <div className="mb-10">
-                <label className="block text-slate-500 text-[10px] font-black uppercase ml-2 mb-2 tracking-widest">Telegram @ID / Phone Number</label>
+                <label className="block text-slate-500 text-[10px] font-black uppercase ml-2 mb-2 tracking-widest">Telegram / Phone Number</label>
                 <input type="text" placeholder="ဆက်သွယ်ရန် အချက်အလက်" className="w-full bg-[#112240] border border-blue-900/50 p-5 rounded-2xl outline-none focus:ring-2 ring-blue-500/30 text-white" value={contactInfo} onChange={e => setContactInfo(e.target.value)} />
             </div>
-            {!user && <p className="text-yellow-500 text-[10px] text-center mb-4 italic">အော်ဒါတင်ရန် Login အရင်ဝင်ပေးပါရှင်။</p>}
             <button onClick={handleOrder} disabled={loading || !contactInfo || !user} className="w-full bg-blue-600 py-5 rounded-2xl font-black shadow-xl active:scale-95 disabled:opacity-50 transition-all flex items-center justify-center gap-3 text-lg">
-              {loading ? <Loader2 className="animate-spin" /> : <><Send size={20}/> Confirm Order Now</>}
+              {loading ? <Loader2 className="animate-spin" /> : <><Send size={20}/> Send Order Request</>}
             </button>
             <BottomNav />
           </div>
         )}
 
-        {/* --- VIEW: ADMIN DASHBOARD --- */}
+        {/* --- ADMIN DASHBOARD --- */}
         {view === 'admin_dash' && profile?.role === 'admin' && (
           <div className="p-8 text-left flex flex-col flex-1 pb-32 overflow-y-auto">
             <div className="flex justify-between items-center mb-6">
@@ -436,7 +434,7 @@ export default function App() {
           </div>
         )}
 
-        {/* --- VIEW: PROFILE --- */}
+        {/* --- PROFILE --- */}
         {view === 'profile' && (
             <div className="p-8 text-center flex flex-col flex-1 items-center justify-center pb-32 overflow-y-auto">
                 {user ? (
@@ -447,18 +445,18 @@ export default function App() {
                         </div>
                         {isEditingProfile ? (
                             <div className="w-full space-y-4 mb-10 text-left">
-                                <div><label className="block text-slate-500 text-[10px] font-black uppercase ml-2 mb-1 tracking-widest">Name</label><input type="text" className="w-full bg-[#112240] border border-blue-500/30 p-4 rounded-2xl outline-none text-sm text-white" value={editName} onChange={e => setEditName(e.target.value)} /></div>
-                                <div><label className="block text-slate-500 text-[10px] font-black uppercase ml-2 mb-1 tracking-widest">Telegram / Phone</label><input type="text" className="w-full bg-[#112240] border border-blue-500/30 p-4 rounded-2xl outline-none text-sm text-white" value={editContact} onChange={e => setEditContact(e.target.value)} /></div>
-                                <div className="grid grid-cols-2 gap-4"><button onClick={() => setIsEditingProfile(false)} className="bg-slate-800 py-4 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 transition-all"><X size={16}/> Cancel</button><button onClick={handleUpdateProfile} className="bg-blue-600 py-4 rounded-2xl font-black text-xs flex items-center justify-center gap-2 shadow-lg transition-all"><Save size={16}/> Save Changes</button></div>
+                                <div><label className="block text-slate-500 text-[10px] font-black uppercase ml-2 mb-1 tracking-widest">Display Name</label><input type="text" className="w-full bg-[#112240] border border-blue-500/30 p-4 rounded-2xl outline-none text-sm text-white" value={editName} onChange={e => setEditName(e.target.value)} /></div>
+                                <div><label className="block text-slate-500 text-[10px] font-black uppercase ml-2 mb-1 tracking-widest">Contact Info</label><input type="text" className="w-full bg-[#112240] border border-blue-500/30 p-4 rounded-2xl outline-none text-sm text-white" value={editContact} onChange={e => setEditContact(e.target.value)} /></div>
+                                <div className="grid grid-cols-2 gap-4"><button onClick={() => setIsEditingProfile(false)} className="bg-slate-800 py-4 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 transition-all"><X size={16}/> Cancel</button><button onClick={handleUpdateProfile} className="bg-blue-600 py-4 rounded-2xl font-black text-xs flex items-center justify-center gap-2 shadow-lg transition-all"><Save size={16}/> Update</button></div>
                             </div>
                         ) : (
                             <>
                                 <h2 className="text-2xl font-black mb-1 leading-tight">{profile?.name || user.displayName}</h2>
                                 <p className="text-blue-400 text-sm font-bold mb-8">{user.email}</p>
                                 <div className="bg-[#112240] w-full p-8 rounded-[2.5rem] border border-blue-900/30 mb-8 text-left shadow-xl">
-                                    <div className="flex justify-between items-center py-4 border-b border-blue-900/20"><span className="text-slate-400 font-bold text-[10px] uppercase tracking-widest">Membership Tier</span><span className="bg-blue-600 text-white px-4 py-1 rounded-full text-[10px] font-black uppercase shadow-lg">{profile?.tier}</span></div>
-                                    <div className="flex justify-between items-center py-4 border-b border-blue-900/20"><span className="text-slate-400 font-bold text-[10px] uppercase tracking-widest">Contact Info</span><span className="text-white text-sm font-bold">{profile?.contact || 'Not set'}</span></div>
-                                    <button onClick={() => setIsEditingProfile(true)} className="w-full mt-4 text-blue-500 text-[10px] font-black uppercase flex items-center justify-center gap-2 py-2 rounded-xl transition-all hover:bg-blue-600/10"><Edit3 size={14}/> Edit Profile Details</button>
+                                    <div className="flex justify-between items-center py-4 border-b border-blue-900/20"><span className="text-slate-400 font-bold text-[10px] uppercase tracking-widest">Level</span><span className="bg-blue-600 text-white px-4 py-1 rounded-full text-[10px] font-black uppercase shadow-lg">{profile?.tier}</span></div>
+                                    <div className="flex justify-between items-center py-4 border-b border-blue-900/20"><span className="text-slate-400 font-bold text-[10px] uppercase tracking-widest">Contact</span><span className="text-white text-sm font-bold">{profile?.contact || 'Not set'}</span></div>
+                                    <button onClick={() => setIsEditingProfile(true)} className="w-full mt-4 text-blue-500 text-[10px] font-black uppercase flex items-center justify-center gap-2 py-2 rounded-xl transition-all hover:bg-blue-600/10"><Edit3 size={14}/> Edit Profile</button>
                                 </div>
                             </>
                         )}
@@ -469,11 +467,11 @@ export default function App() {
             </div>
         )}
 
-        {/* --- VIEW: CUSTOMER HISTORY --- */}
+        {/* --- HISTORY --- */}
         {view === 'customer_dash' && (
           <div className="p-8 text-left flex flex-col flex-1 pb-32 overflow-y-auto">
-            <h2 className="text-3xl font-black mb-1 text-left">My History</h2>
-            <p className="text-slate-500 text-sm mb-8 text-left">Recent purchase records</p>
+            <h2 className="text-3xl font-black mb-1 text-left">Purchase History</h2>
+            <p className="text-slate-500 text-sm mb-8 text-left">Records of your orders</p>
             <div className="space-y-4">
                 {myOrders.map(o => (
                   <div key={o.id} className="bg-[#112240] p-5 rounded-3xl border border-blue-900/30 flex justify-between items-center shadow-lg">
@@ -485,19 +483,19 @@ export default function App() {
                     <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase ${o.status === 'Completed' ? 'bg-green-500/10 text-green-500 border border-green-500/20' : 'bg-yellow-500/10 text-yellow-500 border border-yellow-500/20'}`}>{o.status}</span>
                   </div>
                 ))}
-                {myOrders.length === 0 && <p className="text-center py-20 text-slate-600 italic">ဝယ်ယူထားသည့် မှတ်တမ်းမရှိသေးပါ။</p>}
+                {myOrders.length === 0 && <p className="text-center py-20 text-slate-600 italic">No history found.</p>}
             </div>
             <BottomNav />
           </div>
         )}
 
-        {/* --- VIEW: SUCCESS --- */}
+        {/* --- SUCCESS --- */}
         {view === 'order_success' && (
           <div className="flex-1 flex flex-col items-center justify-center p-10 text-center text-white bg-[#0a192f]">
             <div className="w-24 h-24 bg-green-500/10 rounded-full flex items-center justify-center mb-8 border border-green-500/20 shadow-2xl animate-pulse"><CheckCircle2 size={60} className="text-green-500" /></div>
             <h2 className="text-4xl font-black mb-4 tracking-tighter uppercase">Success!</h2>
-            <p className="text-slate-400 mb-10 text-sm italic text-center leading-relaxed">အော်ဒါတင်ခြင်း အောင်မြင်ပါတယ်ရှင်။ <br/> Admin မှ စစ်ဆေးပြီး Telegram မှ ဆက်သွယ်ပါမည်။</p>
-            <button onClick={() => setView('customer_dash')} className="w-full bg-blue-600 py-5 rounded-2xl font-black shadow-xl text-lg active:scale-95 transition-all">History ကြည့်မည်</button>
+            <p className="text-slate-400 mb-10 text-sm italic text-center leading-relaxed">Your order has been placed. <br/> Admin will contact you soon.</p>
+            <button onClick={() => setView('customer_dash')} className="w-full bg-blue-600 py-5 rounded-2xl font-black shadow-xl text-lg active:scale-95 transition-all">View History</button>
           </div>
         )}
 
