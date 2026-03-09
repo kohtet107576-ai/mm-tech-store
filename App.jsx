@@ -75,42 +75,51 @@ export default function App() {
     { id: 'Gsm reseller', name: 'GSM Reseller', icon: <Settings size={20} /> }
   ];
 
-  // --- (၂) REFINED AUTHENTICATION FLOW (FIXED REDIRECT LOOP) ---
+  // --- (၂) REFINED AUTHENTICATION FLOW ---
   useEffect(() => {
-    const runAuthSequence = async () => {
+    let isMounted = true;
+
+    const initAuth = async () => {
       try {
-        // (A) Browser Persistence သတ်မှတ်ခြင်း
+        // (A) Persistence ကို အရင်ဆုံး force လုပ်မည်
         await setPersistence(auth, browserLocalPersistence);
         
-        // (B) Redirect ပြန်လာသည့် ရလဒ်ကို အရင်စစ်ဆေးခြင်း
+        // (B) Redirect Result ကို စစ်ဆေးမည် (Login page သို့ ပြန်ကျခြင်းကို တားဆီးရန်)
         const result = await getRedirectResult(auth);
-        if (result?.user) {
+        if (result?.user && isMounted) {
           setUser(result.user);
           await syncProfile(result.user);
           setView('home');
         }
       } catch (error) {
-        console.error("Auth Sequence Error:", error);
-      } finally {
-        // Redirect စစ်ပြီးမှသာ Auth State ကို စောင့်ကြည့်မည်
-        const unsubscribe = onAuthStateChanged(auth, async (currUser) => {
-          if (currUser) {
-            setUser(currUser);
-            await syncProfile(currUser);
-            setView('home');
-          } else {
-            setUser(null);
-            setProfile(null);
-            setView('welcome');
-          }
-          // logic များပြီးဆုံးမှ loading ပိတ်မည်
-          setLoading(false);
-        });
-        return () => unsubscribe();
+        console.error("Auth Init Error:", error);
       }
     };
 
-    runAuthSequence();
+    initAuth();
+
+    // (C) Auth state ပြောင်းလဲမှုကို စောင့်ကြည့်မည်
+    const unsubscribe = onAuthStateChanged(auth, async (currUser) => {
+      if (currUser) {
+        if (isMounted) {
+          setUser(currUser);
+          await syncProfile(currUser);
+          setView('home');
+        }
+      } else {
+        if (isMounted) {
+          setUser(null);
+          setProfile(null);
+          // Redirect စစ်ဆေးနေစဉ်အတွင်း welcome သို့ ချက်ချင်းမပို့ရန် check result result logic က ကိုင်တွယ်မည်
+        }
+      }
+      if (isMounted) setLoading(false);
+    });
+
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
   }, []);
 
   const syncProfile = async (u) => {
@@ -143,7 +152,7 @@ export default function App() {
       setEditContact(currentProfile.contact || '');
       setContactInfo(currentProfile.contact || '');
     } catch (e) {
-      console.error("Profile Sync Error:", e);
+      console.error("Sync Profile Error:", e);
     }
   };
 
@@ -266,7 +275,7 @@ export default function App() {
   if (loading) return (
     <div className="min-h-screen bg-[#0a192f] flex flex-col items-center justify-center gap-4 text-white">
       <Loader2 className="animate-spin text-blue-500" size={40}/>
-      <p className="text-blue-400 text-xs font-black uppercase tracking-widest animate-pulse">Accessing MM Tech...</p>
+      <p className="text-blue-400 text-xs font-black uppercase tracking-widest animate-pulse">Syncing MM Tech Hub...</p>
     </div>
   );
 
@@ -302,7 +311,7 @@ export default function App() {
                 <div><p className="text-blue-500 text-[10px] font-black uppercase tracking-widest">Premium Store</p><h2 className="text-2xl font-black text-white">Welcome, {profile?.name.split(' ')[0] || user?.displayName?.split(' ')[0] || 'Guest'}</h2></div>
                 {user && <div className="w-10 h-10 rounded-full border-2 border-blue-600 p-0.5 shadow-lg overflow-hidden"><img src={user.photoURL} className="rounded-full w-full h-full" alt="U"/></div>}
               </div>
-              <div className="relative"><Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18}/><input type="text" placeholder="Search digital services..." className="w-full bg-[#0a192f] border border-blue-900/50 text-white py-4 pl-12 pr-4 rounded-2xl outline-none focus:ring-1 ring-blue-500/20 text-sm" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} /></div>
+              <div className="relative"><Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18}/><input type="text" placeholder="Search services..." className="w-full bg-[#0a192f] border border-blue-900/50 text-white py-4 pl-12 pr-4 rounded-2xl outline-none focus:ring-1 ring-blue-500/20 text-sm" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} /></div>
             </div>
             <div className="px-5 py-8 pb-32 overflow-y-auto">
                 <div className="grid grid-cols-2 gap-4 mb-10">
