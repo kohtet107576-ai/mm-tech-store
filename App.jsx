@@ -144,6 +144,7 @@ export default function App() {
     const tier = profile?.tier || 'Standard';
     return getPProp(plan, `Price_${tier}`) || getPProp(plan, 'Price');
   };
+
   const handleOrder = async () => {
     if (!editContact.trim()) return alert("အချက်အလက်များ ဖြည့်ပေးပါဦးဗျ");
     if (!payImg) return alert("ငွေလွှဲ Screenshot တင်ပေးပါဦးဗျ");
@@ -165,13 +166,10 @@ export default function App() {
     };
 
     try {
-      // ၁။ Firebase ထဲ သိမ်းမယ်
+      // ၁။ Firebase သိမ်းဆည်းခြင်း
       await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'orders'), orderData);
       
-      // ၂။ Telegram ဆီ ပို့မယ် (ပိုလန်းတဲ့ Format လေးနဲ့)
-      const TELEGRAM_BOT_TOKEN = "8666075565:AAFFgji8bX9jxcx90GMMqYq-JwKH-PTU2vk";
-      const TELEGRAM_CHAT_ID = "7427263125";
-      
+      // ၂။ Telegram Notification ပို့ဆောင်ခြင်း
       const teleMsg = `
 🔔 *Order အသစ်ရောက်ရှိ!*
 -------------------------
@@ -193,7 +191,7 @@ export default function App() {
         })
       });
 
-      // ၃။ Google Sheet ဆီ ပို့မယ်
+      // ၃။ Google Sheet သိမ်းဆည်းခြင်း
       fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(orderData) });
 
       setTechImg(""); setPayImg(""); setEditContact(""); setSelectedPayment(null);
@@ -205,43 +203,12 @@ export default function App() {
     }
   };
 
-  const handleOrder = async () => {
-    if (!editContact.trim()) return alert("အချက်အလက်များ ဖြည့်ပေးပါဦးဗျ");
-    if (!payImg) return alert("ငွေလွှဲ Screenshot တင်ပေးပါဦးဗျ");
-    setLoading(true);
-    const orderData = {
-      userId: user.uid, userName: profile?.name, product: getPProp(selectedPlan, 'Name'),
-      plan: getPProp(selectedPlan, 'Plan'), price: getDisplayPrice(selectedPlan),
-      contact: editContact, paymentMethod: selectedPayment?.name || 'KPay',
-      techImage: techImg, payImage: payImg, status: 'Pending', timestamp: Date.now(),
-      date: new Date().toLocaleString('en-GB')
-    };
-    try {
-      await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'orders'), orderData);
-      fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(orderData) });
-      setTechImg(""); setPayImg(""); setEditContact(""); setSelectedPayment(null);
-      setView('order_success');
-    } catch (e) { alert("Error ordering: " + e.message); } finally { setLoading(false); }
-  };
-
   const updateStatus = async (orderId, newStatus, resultData = "") => {
     try {
       await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'orders', orderId), { status: newStatus, result: resultData });
       alert("Order Updated!");
     } catch (e) { console.error(e); }
   };
-  try {
-    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'orders'), orderData);
-    
-    // --- Telegram ပို့ရန် ထပ်တိုး code ---
-    const teleMsg = `🔔 Order အသစ်ရပါပြီ!\n👤 Name: ${orderData.userName}\n📦 Item: ${orderData.product}\n💰 Price: ${orderData.price} Ks`;
-    fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage?chat_id=${TELEGRAM_CHAT_ID}&text=${encodeURIComponent(teleMsg)}`);
-    // ---------------------------------
-
-    fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(orderData) });
-    // ... (ကျန်တဲ့ code များ)
-  } catch (e) { /* ... */ }
-};
 
   const groupedProducts = useMemo(() => {
     const groups = {};
@@ -255,7 +222,7 @@ export default function App() {
     return Object.values(groups);
   }, [products]);
 
-  // --- UI COMPONENTS ---
+  // --- UI COMPONENTS --- (Header, BottomNav, etc.)
   const MainHeader = () => (
     <div className="flex items-center justify-between p-4 bg-[#0a192f] border-b border-blue-900/20 sticky top-0 z-40">
       <div className="flex items-center gap-2">
