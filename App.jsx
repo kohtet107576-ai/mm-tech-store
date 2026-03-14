@@ -164,7 +164,7 @@ export default function App() {
   );
 
   const BottomNav = () => (
-    <nav className="fixed bottom-0 left-0 right-0 bg-[#0a192f]/95 border-t border-blue-900/20 p-5 flex justify-around items-center z-50 max-w-md mx-auto">
+    <nav className="fixed bottom-0 left-0 right-0 bg-[#0a192f]/95 border-t border-blue-900/20 p-5 flex justify-around items-center z-50 max-w-md md:max-w-4xl lg:max-w-6xl mx-auto rounded-t-[2.5rem] shadow-2xl">
       <button onClick={() => setView('home')} className={view === 'home' ? 'text-blue-500' : 'text-slate-500'}><ShoppingBag size={24}/></button>
       <button onClick={() => setView('customer_dash')} className={view === 'customer_dash' ? 'text-blue-500' : 'text-slate-500'}><History size={24}/></button>
       {profile?.role === 'admin' && <button onClick={() => setView('admin_dash')} className={view === 'admin_dash' ? 'text-blue-500' : 'text-slate-500'}><ShieldCheck size={24}/></button>}
@@ -199,7 +199,7 @@ export default function App() {
                   <button key={c.id} onClick={() => setSelectedCat(c.id)} className={`px-5 py-2 rounded-full text-[11px] font-black border ${selectedCat === c.id ? 'bg-blue-600 border-blue-500' : 'bg-[#112240] border-blue-900/30'}`}>{c.name}</button>
                 ))}
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
                 {groupedProducts.filter(g => !selectedCat || g.category === selectedCat).map(group => (
                   <div key={group.name} onClick={() => { setSelectedGroup(group); setView('group_details'); }} className="bg-[#112240]/40 p-3 rounded-2xl border border-blue-900/10 active:scale-95 transition-all">
                     <div className="aspect-square bg-[#0a192f] rounded-xl overflow-hidden mb-3"><img src={formatImg(group.image)} className="w-full h-full object-cover" alt="I" /></div>
@@ -341,7 +341,7 @@ export default function App() {
           <div className="p-10 flex flex-col flex-1 items-center justify-center pb-40 text-center">
             <MainHeader />
             {user ? (
-              <div className="w-full max-w-sm flex flex-col items-center">
+              <div className="w-full max-w-md md:max-w-4xl lg:max-w-6xl mx-auto min-h-screen flex flex-col relative bg-[#0a192f] border-x border-blue-900/10 shadow-2xl">
                 <img src={user.photoURL} className="w-28 h-28 rounded-[2.5rem] border-4 border-blue-600 p-1 mb-6 shadow-2xl" alt="U"/>
                 <h2 className="text-3xl font-black mb-1 text-white">{profile?.name}</h2>
                 <div className="bg-[#112240] w-full p-8 rounded-[3rem] border border-blue-900/30 text-left mt-4 mb-10 shadow-2xl">
