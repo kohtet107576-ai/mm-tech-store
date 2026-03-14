@@ -15,7 +15,7 @@ import {
 
 // --- (၁) CONFIGURATION ---
 const LOGO_URL = "https://drive.google.com/thumbnail?id=1Lh-nHgyLMSr3rBVe4OGnjEvEspuMokd6&sz=w1000";
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbynnKhXae3rgRWpPyh3XZ5Ls6Cf-EuyX0dBoKOEKXlFexc8jWdC2ILmee9OILjtOJh1/exec"; 
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw1xmoBmqQ_qV5_rdhCRGiY5pZnNk9hQe5mIr3Ox-AAKra-ZegNmsH9z8KO0R4a18xw/exec"; 
 const ADMIN_EMAILS = ["kohtet107576@gmail.com"]; 
 
 const firebaseConfig = {
