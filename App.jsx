@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 
 // --- (၁) CONFIGURATION ---
-const LOGO_URL = "https://i.ibb.co/1Lh-nHgyLMSr3rBVe4OGnjEvEspuMokd6/logo.png";
+const LOGO_URL = "https://drive.google.com/thumbnail?id=1Lh-nHgyLMSr3rBVe4OGnjEvEspuMokd6&sz=w1000";
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbynnKhXae3rgRWpPyh3XZ5Ls6Cf-EuyX0dBoKOEKXlFexc8jWdC2ILmee9OILjtOJh1/exec"; 
 const ADMIN_EMAILS = ["kohtet107576@gmail.com"]; 
 
@@ -39,8 +39,13 @@ const getPProp = (p, k) => p?.[k] || p?.[k.toLowerCase()] || p?.[k.toUpperCase()
 
 const formatImg = (url) => {
   if (!url || typeof url !== 'string') return LOGO_URL;
-  const idMatch = url.match(/[-\w]{25,}/);
-  return idMatch ? `https://drive.google.com/thumbnail?id=${idMatch[0]}&sz=w1000` : LOGO_URL;
+  
+  // Google Drive link (View link) အရှည်ကြီးတွေ ဖြစ်နေရင် Thumbnail ပြောင်းမယ်
+  if (url.includes('drive.google.com') && url.includes('view')) {
+    const idMatch = url.match(/[-\w]{25,}/);
+    return idMatch ? `https://drive.google.com/thumbnail?id=${idMatch[0]}&sz=w1000` : LOGO_URL;
+  }
+  return url;
 };
 
 export default function App() {
@@ -195,19 +200,25 @@ export default function App() {
   }, [products]);
 
   // --- (၆) UI COMPONENTS ---
-  const MainHeader = () => (
-    <div className="flex items-center justify-between p-4 lg:px-8 bg-[#0a192f] border-b border-blue-900/20 sticky top-0 z-40 backdrop-blur-md">
-      <div className="flex items-center gap-2">
-        <div className="w-8 h-8 rounded-lg border border-blue-500/30 overflow-hidden"><img src={LOGO_URL} className="w-full h-full object-cover" alt="Logo" /></div>
-        <h2 className="text-md font-black text-white uppercase tracking-tighter">MM Tech</h2>
+ const MainHeader = () => (
+  <div className="flex items-center justify-between p-4 lg:px-8 bg-[#0a192f] border-b border-blue-900/20 sticky top-0 z-40 backdrop-blur-md">
+    <div className="flex items-center gap-2">
+      {/* Logo Container - Closing tag ကို သေချာပြန်ထည့်ပေးထားပါတယ် */}
+      <div className="w-10 h-10 rounded-lg border border-blue-500/30 overflow-hidden flex items-center justify-center bg-[#112240]">
+        <img 
+          src={formatImg(LOGO_URL)} 
+          className="w-full h-full object-contain" 
+          alt="Logo" 
+        />
       </div>
-      <div className="flex items-center gap-4">
-        <a href="https://t.me/mmtech19" target="_blank" rel="noreferrer" className="text-[10px] font-black text-slate-500 uppercase">Customer-Chat</a>
-        <button className="text-white"><ShoppingBag size={20}/></button>
-      </div>
+      <h2 className="text-md font-black text-white uppercase tracking-tighter">MM Tech</h2>
     </div>
-  );
-
+    <div className="flex items-center gap-4">
+      <a href="https://t.me/mmtech19" target="_blank" rel="noreferrer" className="text-[10px] font-black text-slate-500 uppercase">Customer-Chat</a>
+      <button className="text-white"><ShoppingBag size={20}/></button>
+    </div>
+  </div>
+);
   const BottomNav = () => (
     <nav className="fixed bottom-0 left-0 right-0 bg-[#0a192f]/95 backdrop-blur-xl border-t border-blue-900/20 p-5 flex justify-around items-center z-50 rounded-t-[2.5rem] max-w-md lg:max-w-4xl mx-auto shadow-2xl">
       <button onClick={() => setView('home')} className={view === 'home' ? 'text-blue-500 scale-110' : 'text-slate-500'}><ShoppingBag size={24}/></button>
