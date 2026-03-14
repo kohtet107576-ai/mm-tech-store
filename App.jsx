@@ -149,7 +149,10 @@ export default function App() {
     return () => unsubOrders();
   }, [user, profile]);
 
-  const handleOrder = async () => {
+  // --- (၅) DATA FETCHING & SYNC ---
+
+// (၁) Order တင်တဲ့ Function
+const handleOrder = async () => {
     if (!editContact && !profile?.contact) return;
     setLoading(true);
     const orderData = {
@@ -158,6 +161,24 @@ export default function App() {
       contact: editContact || profile?.contact, status: 'Pending', timestamp: Date.now(),
       date: new Date().toLocaleString('en-GB')
     };
+    try {
+      await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'orders'), orderData);
+      fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(orderData) });
+      setView('order_success');
+    } catch (e) { console.error(e); } finally { setLoading(false); }
+};
+
+// (၂) Status Update လုပ်တဲ့ Function (ဒီလိုမျိုး အပြင်ထုတ်ရေးပေးပါ)
+const updateStatus = async (orderId, newStatus) => {
+  try {
+    const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'orders', orderId);
+    await updateDoc(docRef, { status: newStatus });
+    console.log("Order status updated!");
+  } catch (e) {
+    console.error("Error updating status:", e);
+  }
+};
+
     try {
       await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'orders'), orderData);
       fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(orderData) });
