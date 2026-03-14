@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 
 // --- (၁) CONFIGURATION ---
-const LOGO_URL = "https://drive.google.com/file/d/1Lh-nHgyLMSr3rBVe4OGnjEvEspuMokd6/view?usp=sharing"; 
+const LOGO_URL = "https://i.ibb.co/1Lh-nHgyLMSr3rBVe4OGnjEvEspuMokd6/logo.png";
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbynnKhXae3rgRWpPyh3XZ5Ls6Cf-EuyX0dBoKOEKXlFexc8jWdC2ILmee9OILjtOJh1/exec"; 
 const ADMIN_EMAILS = ["kohtet107576@gmail.com"]; 
 
