@@ -332,16 +332,52 @@ export default function App() {
             <div className="flex-1">
               {adminTab === 'orders' ? (
                 <div className="space-y-4">
-                  {allOrders.map(o => (
-                    <div key={o.id} className="bg-[#112240] p-6 rounded-[2rem] border border-blue-900/30">
-                      <div className="flex justify-between items-start mb-4">
-                        <div><h4 className="font-black text-white">{o.product}</h4><p className="text-xs text-blue-500">{o.plan} - {o.price} Ks</p></div>
-                        <span className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase ${o.status === 'Completed' ? 'text-green-500' : 'text-yellow-500 animate-pulse'}`}>{o.status}</span>
-                      </div>
-                      <div className="bg-[#0a192f]/50 p-4 rounded-xl text-[11px] mb-4 space-y-2"><p className="flex justify-between"><span>Contact:</span><span className="text-blue-400 font-bold">{o.contact}</span></p><p className="flex justify-between"><span>User:</span><span>{o.userName}</span></p></div>
-                      {o.status === 'Pending' && <button onClick={() => updateStatus(o.id, 'Completed')} className="w-full bg-blue-600 py-3 rounded-xl font-black text-xs text-white">Mark Done</button>}
-                    </div>
-                  ))}
+                  {adminTab === 'orders' ? (
+  /* --- (၁) အော်ဒါစာရင်း Tab --- */
+  <div className="space-y-4">
+    {allOrders.map(o => (
+      <div key={o.id} className="bg-[#112240] p-6 rounded-[2rem] border border-blue-900/30 text-left">
+        <div className="flex justify-between items-start mb-4">
+          <div>
+            <h4 className="font-black text-white">{o.product}</h4>
+            <p className="text-xs text-blue-500 font-bold">{o.plan} - {o.price} Ks</p>
+          </div>
+          <span className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase ${o.status === 'Completed' ? 'text-green-500 bg-green-500/10' : 'text-yellow-500 bg-yellow-500/10 animate-pulse'}`}>
+            {o.status}
+          </span>
+        </div>
+        
+        <div className="bg-[#0a192f]/50 p-4 rounded-xl text-[11px] mb-4 space-y-2 text-slate-300 border border-blue-900/10">
+          <p className="flex justify-between"><span>Contact:</span><span className="text-blue-400 font-bold">{o.contact}</span></p>
+          <p className="flex justify-between"><span>User:</span><span>{o.userName}</span></p>
+          {o.result && <p className="flex justify-between text-green-400 font-bold mt-2"><span>Delivered:</span><span>{o.result}</span></p>}
+        </div>
+
+        {/* Deliver Logic - Pending ဖြစ်နေမှ ဒီ Input နဲ့ ခလုတ် ပေါ်မယ် */}
+        {o.status === 'Pending' && (
+          <div className="mt-4 space-y-3">
+            <input 
+              type="text" 
+              id={`result-${o.id}`}
+              placeholder="Enter Gmail / Code here..."
+              className="w-full bg-[#0a192f] border border-blue-900/30 p-4 rounded-2xl text-xs text-white outline-none focus:border-blue-500 shadow-inner"
+            />
+            <button 
+              onClick={() => {
+                const val = document.getElementById(`result-${o.id}`).value;
+                if(!val) return alert("Deliver လုပ်မယ့် Code ထည့်ပေးပါဦးဗျ");
+                updateStatus(o.id, 'Completed', val); 
+              }} 
+              className="w-full bg-blue-600 py-4 rounded-2xl font-black text-xs text-white shadow-lg active:scale-95 transition-all"
+            >
+              Deliver & Mark Done
+            </button>
+          </div>
+        )}
+      </div>
+    ))}
+  </div>
+) : ( ... )}
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -364,39 +400,84 @@ export default function App() {
           </div>
         )}
 
+     {/* --- CUSTOMER DASHBOARD VIEW --- */}
         {view === 'customer_dash' && (
           <div className="p-8 flex flex-col flex-1 pb-40 text-left">
             <MainHeader />
-            <h2 className="text-3xl font-black mb-2 mt-4">Purchase History</h2>
-            <p className="text-slate-500 text-sm mb-10">Digital Product မှတ်တမ်းများ</p>
-            <div className="space-y-4">{myOrders.map(o => (
-              <div key={o.id} className="bg-[#112240] p-5 rounded-[2rem] border border-blue-900/30 flex justify-between items-center shadow-lg">
-                <div><h4 className="font-black text-sm text-white">{o.product}</h4><p className="text-blue-500 text-[10px] font-black">{o.plan} • {o.price} Ks</p><p className="text-[9px] text-slate-600 mt-1 italic">{o.date}</p></div>
-                <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase ${o.status === 'Completed' ? 'bg-green-500/10 text-green-500' : 'bg-yellow-500/10 text-yellow-500'}`}>{o.status}</span>
-              </div>
-            ))}</div>
+            <h2 className="text-3xl font-black mb-2 mt-4 text-left">Purchase History</h2>
+            <p className="text-slate-500 text-sm mb-10 text-left">Digital Product မှတ်တမ်းများ</p>
+            
+            <div className="space-y-4">
+              {myOrders.map(o => (
+                <div key={o.id} className="bg-[#112240] p-6 rounded-[2rem] border border-blue-900/30 shadow-lg flex flex-col gap-3">
+                  <div className="flex justify-between items-start">
+                    <div className="text-left">
+                      <h4 className="font-black text-sm text-white">{o.product}</h4>
+                      <p className="text-blue-500 text-[10px] font-black uppercase tracking-tighter">{o.plan} • {o.price} Ks</p>
+                    </div>
+                    <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase ${o.status === 'Completed' ? 'bg-green-500/10 text-green-500' : 'bg-yellow-500/10 text-yellow-500'}`}>
+                      {o.status}
+                    </span>
+                  </div>
+
+                  {/* Admin ပို့လိုက်တဲ့ Code/Gmail ကို ဒီမှာပြမယ် */}
+                  {o.status === 'Completed' && o.result && (
+                    <div className="bg-blue-600/10 border border-blue-600/20 p-4 rounded-2xl animate-in slide-in-from-top-2 duration-300">
+                      <p className="text-[8px] text-blue-400 uppercase font-black mb-1 tracking-widest">Delivered Item / Code:</p>
+                      <div className="flex items-center justify-between gap-3">
+                        <code className="text-[12px] font-mono font-bold text-white break-all">{o.result}</code>
+                        <button 
+                          onClick={() => { navigator.clipboard.writeText(o.result); alert("Copied to clipboard!"); }}
+                          className="bg-blue-600 p-2.5 rounded-xl text-white shadow-lg active:scale-90 transition-all shrink-0"
+                        >
+                          <Save size={14}/>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  <p className="text-[9px] text-slate-600 italic mt-1">{o.date}</p>
+                </div>
+              ))}
+              {myOrders.length === 0 && <div className="py-20 text-center opacity-30 italic text-sm text-white">မှတ်တမ်းမရှိသေးပါဗျ</div>}
+            </div>
             <BottomNav />
           </div>
         )}
 
+        {/* --- PROFILE VIEW --- */}
         {view === 'profile' && (
           <div className="p-10 flex flex-col flex-1 items-center justify-center pb-40 text-center">
             <MainHeader />
-            {user ? <div className="w-full max-w-sm flex flex-col items-center">
-              <div className="relative mb-8"><img src={user.photoURL} className="w-28 h-28 rounded-[2.5rem] border-4 border-blue-600 p-1 shadow-2xl"/><div className="absolute -bottom-2 -right-2 bg-blue-600 p-2 rounded-2xl border-4 border-[#0a192f]"><BadgeCheck size={20} className="text-white"/></div></div>
-              <h2 className="text-3xl font-black mb-1">{profile?.name}</h2>
-              <p className="text-blue-400 text-sm font-bold mb-10">{user.email}</p>
-              <div className="bg-[#112240] w-full p-8 rounded-[3rem] border border-blue-900/30 text-left mb-10">
-                <div className="flex justify-between py-4 border-b border-blue-900/10 text-xs"><span className="text-slate-400 uppercase tracking-widest font-black">Tier</span><span className="text-blue-500 font-black">{profile?.tier}</span></div>
-                <div className="flex justify-between py-4 text-xs"><span className="text-slate-400 uppercase tracking-widest font-black">Contact</span><span className="font-bold">{profile?.contact || 'Not Set'}</span></div>
+            {user ? (
+              <div className="w-full max-w-sm flex flex-col items-center">
+                <div className="relative mb-8">
+                  <img src={user.photoURL} className="w-28 h-28 rounded-[2.5rem] border-4 border-blue-600 p-1 shadow-2xl" alt="U"/>
+                  <div className="absolute -bottom-2 -right-2 bg-blue-600 p-2 rounded-2xl border-4 border-[#0a192f]"><BadgeCheck size={20} className="text-white"/></div>
+                </div>
+                <h2 className="text-3xl font-black mb-1 text-white">{profile?.name}</h2>
+                <p className="text-blue-400 text-sm font-bold mb-10">{user.email}</p>
+                
+                <div className="bg-[#112240] w-full p-8 rounded-[3rem] border border-blue-900/30 text-left mb-10 shadow-2xl">
+                  <div className="flex justify-between py-4 border-b border-blue-900/10 text-xs">
+                    <span className="text-slate-400 uppercase tracking-widest font-black">Tier</span>
+                    <span className="text-blue-500 font-black">{profile?.tier}</span>
+                  </div>
+                  <div className="flex justify-between py-4 text-xs">
+                    <span className="text-slate-400 uppercase tracking-widest font-black">Contact</span>
+                    <span className="font-bold text-white">{profile?.contact || 'Not Set'}</span>
+                  </div>
+                </div>
+                
+                <button 
+                  onClick={() => signOut(auth)} 
+                  className="text-red-500 text-xs font-black uppercase tracking-widest flex items-center gap-3 active:scale-95 transition-all"
+                >
+                  <LogOut size={20}/> Sign Out
+                </button>
               </div>
-              <button onClick={() => signOut(auth)} className="text-red-500 text-xs font-black uppercase tracking-widest flex items-center gap-3"><LogOut size={20}/> Sign Out</button>
-            </div> : <button onClick={handleLogin} className="bg-white text-black px-10 py-4 rounded-2xl font-black text-lg">Login with Google</button>}
+            ) : (
+              <button onClick={handleLogin} className="bg-white text-black px-10 py-4 rounded-2xl font-black text-lg">Login with Google</button>
+            )}
             <BottomNav />
           </div>
         )}
-
-      </div>
-    </div>
-  );
-}
