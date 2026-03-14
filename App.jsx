@@ -14,8 +14,8 @@ import {
 } from 'lucide-react';
 
 // --- (၁) CONFIGURATION ---
-const LOGO_URL = "https://placehold.co/100x100/112240/ffffff?text=MM+TECH"; 
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyC1MECq8ZNzdj-RxmBaMcFfSqVk9Ijt9uuRW-szeukWuCoNBhywDz0k7W1r5mCvjhR/exec"; 
+const LOGO_URL = "https://drive.google.com/file/d/1Lh-nHgyLMSr3rBVe4OGnjEvEspuMokd6/view?usp=sharing"; 
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbynnKhXae3rgRWpPyh3XZ5Ls6Cf-EuyX0dBoKOEKXlFexc8jWdC2ILmee9OILjtOJh1/exec"; 
 const ADMIN_EMAILS = ["kohtet107576@gmail.com"]; 
 
 const firebaseConfig = {
@@ -150,11 +150,14 @@ export default function App() {
   };
 
   const getDisplayPrice = (plan) => {
-    const userTier = profile?.tier || 'Standard';
-    if (userTier === 'VIP') return getPProp(plan, 'Price_VIP') || getPProp(plan, 'Price');
-    if (userTier === 'Reseller') return getPProp(plan, 'Price_Reseller') || getPProp(plan, 'Price');
-    return getPProp(plan, 'Price');
-  };
+  const userTier = profile?.tier || 'Standard';
+  
+  // Google Sheet ထဲက Header နာမည်တွေနဲ့ အတိအကျ တူရပါမယ်
+  if (userTier === 'VIP') return getPProp(plan, 'Price_VIP') || getPProp(plan, 'Price');
+  if (userTier === 'Reseller') return getPProp(plan, 'Price_Reseller') || getPProp(plan, 'Price');
+  
+  return getPProp(plan, 'Price'); // Standard အတွက်
+};
 
   const updateStatus = async (orderId, newStatus) => {
     try {
