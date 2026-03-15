@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, setPersistence, browserLocalPersistence, signOut } from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, collection, addDoc, onSnapshot, updateDoc, query, orderBy } from 'firebase/firestore';
-import { ShoppingBag, Gamepad2, Smartphone, ChevronRight, ArrowLeft, CheckCircle2, Loader2, User, ShieldCheck, LogOut, Send, Save, Layers, Image as ImageIcon, History, Plus } from 'lucide-react';
+import { ShoppingBag, Gamepad2, Smartphone, ChevronRight, ArrowLeft, CheckCircle2, Loader2, User, ShieldCheck, LogOut, Send, Save, Layers, Image as ImageIcon, History, Plus, X } from 'lucide-react';
 
 // --- CONFIGURATION ---
 const LOGO_URL = "https://drive.google.com/thumbnail?id=1Lh-nHgyLMSr3rBVe4OGnjEvEspuMokd6&sz=w1000"; 
@@ -54,15 +54,12 @@ export default function App() {
   const [adminTab, setAdminTab] = useState('orders');
   const [deliveryInputs, setDeliveryInputs] = useState({});
   const [selectedPayment, setSelectedPayment] = useState(null);
-  
-  // အသစ်ပြင်ဆင်ထားသော ပုံ ၃ ပုံ သိမ်းဆည်းရန် State
   const [techImages, setTechImages] = useState([null, null, null]);
   const [payImg, setPayImg] = useState("");
 
   const dynamicCategories = useMemo(() => {
     const uniqueCats = [...new Set(products.map(p => getPProp(p, 'Category')).filter(Boolean))];
-    const iconMap = { 'Game': <Gamepad2 size={16}/>, 'Digital product': <Smartphone size={16}/> };
-    return uniqueCats.map(cat => ({ id: cat, name: cat, icon: iconMap[cat] || <Layers size={16}/> }));
+    return uniqueCats.map(cat => ({ id: cat, name: cat, icon: <Layers size={16}/> }));
   }, [products]);
 
   const syncProfile = useCallback(async (u) => {
@@ -76,7 +73,6 @@ export default function App() {
         role: ADMIN_EMAILS.includes(u.email) ? 'admin' : 'user', 
         uid: u.uid, photoURL: u.photoURL, createdAt: new Date().toISOString()
       };
-      if (ADMIN_EMAILS.includes(u.email)) pData.role = 'admin';
       await setDoc(docRef, pData, { merge: true });
       await setDoc(memberRef, pData, { merge: true });
       setProfile(pData);
@@ -86,24 +82,14 @@ export default function App() {
   useEffect(() => {
     setPersistence(auth, browserLocalPersistence);
     const unsubscribe = onAuthStateChanged(auth, async (currUser) => {
-      if (currUser) { 
-        setUser(currUser); 
-        await syncProfile(currUser); 
-        setView('home'); 
-      } else { 
-        setUser(null); 
-        setProfile(null); 
-        setView('welcome'); 
-      }
+      if (currUser) { setUser(currUser); await syncProfile(currUser); setView('home'); } 
+      else { setUser(null); setProfile(null); setView('welcome'); }
     });
     return () => unsubscribe();
   }, [syncProfile]);
 
   useEffect(() => {
-    fetch(SCRIPT_URL)
-      .then(res => res.json())
-      .then(data => { if (Array.isArray(data)) setProducts(data); })
-      .catch(err => console.error("Fetch Products Error:", err));
+    fetch(SCRIPT_URL).then(res => res.json()).then(data => { if (Array.isArray(data)) setProducts(data); });
   }, []);
 
   useEffect(() => {
@@ -111,10 +97,8 @@ export default function App() {
     const qOrders = query(collection(db, 'artifacts', appId, 'public', 'data', 'orders'), orderBy('timestamp', 'desc'));
     const unsubOrders = onSnapshot(qOrders, (sn) => {
       const docs = sn.docs.map(d => ({ id: d.id, ...d.data() }));
-      setAllOrders(docs); 
-      setMyOrders(docs.filter(o => o.userId === user.uid));
+      setAllOrders(docs); setMyOrders(docs.filter(o => o.userId === user.uid));
     });
-
     let unsubMembers = () => {};
     if (profile?.role === 'admin') {
       unsubMembers = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'members'), (sn) => {
@@ -126,7 +110,6 @@ export default function App() {
 
   const handleLogin = async () => { try { await signInWithPopup(auth, googleProvider); } catch (e) { console.error(e); } };
 
-  // Multi-image upload logic
   const handleImageUpload = async (file, index, type) => {
     if (!file) return;
     setLoading(true);
@@ -137,15 +120,10 @@ export default function App() {
       const data = await res.json();
       if (data.success) {
         if (type === 'tech') {
-          const updatedImages = [...techImages];
-          updatedImages[index] = data.data.url;
-          setTechImages(updatedImages);
-        } else {
-          setPayImg(data.data.url);
-        }
+          const updated = [...techImages]; updated[index] = data.data.url; setTechImages(updated);
+        } else { setPayImg(data.data.url); }
       }
-    } catch (e) { alert("ပုံတင်လို့ မရပါဘူး၊ VPN လိုအပ်နိုင်ပါတယ်"); } 
-    finally { setLoading(false); }
+    } catch (e) { alert("Upload error. Try VPN."); } finally { setLoading(false); }
   };
 
   const getDisplayPrice = (plan) => {
@@ -157,46 +135,24 @@ export default function App() {
     if (!editContact.trim()) return alert("အချက်အလက်များ ဖြည့်ပေးပါဦးဗျ");
     if (!payImg) return alert("ငွေလွှဲ Screenshot တင်ပေးပါဦးဗျ");
     setLoading(true);
-
     const orderData = {
-      userId: user.uid, 
-      userName: profile?.name, 
-      product: getPProp(selectedPlan, 'Name'),
-      plan: getPProp(selectedPlan, 'Plan'), 
-      price: getDisplayPrice(selectedPlan),
-      contact: editContact, 
-      paymentMethod: selectedPayment?.name || 'KPay',
-      techImages: techImages.filter(img => img !== null), // null မဟုတ်တဲ့ ပုံတွေကိုပဲ ပို့မယ်
-      payImage: payImg, 
-      status: 'Pending', 
-      timestamp: Date.now(),
-      date: new Date().toLocaleString('en-GB')
+      userId: user.uid, userName: profile?.name, product: getPProp(selectedPlan, 'Name'),
+      plan: getPProp(selectedPlan, 'Plan'), price: getDisplayPrice(selectedPlan),
+      contact: editContact, paymentMethod: selectedPayment?.name || 'KPay',
+      techImages: techImages.filter(img => img !== null), payImage: payImg, 
+      status: 'Pending', timestamp: Date.now(), date: new Date().toLocaleString('en-GB')
     };
-
     try {
       await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'orders'), orderData);
-      
-      const teleMsg = `🔔 *Order အသစ်ရပါပြီ!*\n👤 အမည်: ${orderData.userName}\n📦 ပစ္စည်း: ${orderData.product} (${orderData.plan})\n💰 ဈေးနှုန်း: ${orderData.price} Ks\n📞 အချက်အလက်: ${orderData.contact}\n📱 [ငွေလွှဲပြေစာ](${orderData.payImage})`;
-      
+      const teleMsg = `🔔 *Order အသစ်ရပါပြီ!*\n👤 အမည်: ${orderData.userName}\n📦 ပစ္စည်း: ${orderData.product}\n💎 Plan: ${orderData.plan}\n💰 ဈေးနှုန်း: ${orderData.price} Ks\n📞 အချက်အလက်: ${orderData.contact}\n📱 [ငွေလွှဲပြေစာ](${orderData.payImage})`;
       fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chat_id: TELEGRAM_CHAT_ID,
-          text: teleMsg,
-          parse_mode: 'Markdown'
-        })
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: teleMsg, parse_mode: 'Markdown' })
       });
-
       fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(orderData) });
-
       setTechImages([null, null, null]); setPayImg(""); setEditContact(""); setSelectedPayment(null);
       setView('order_success');
-    } catch (e) { 
-      alert("Error ordering: " + e.message); 
-    } finally { 
-      setLoading(false); 
-    }
+    } catch (e) { alert("Error: " + e.message); } finally { setLoading(false); }
   };
 
   const updateStatus = async (orderId, newStatus, resultData = "") => {
@@ -218,7 +174,6 @@ export default function App() {
     return Object.values(groups);
   }, [products]);
 
-  // --- UI COMPONENTS ---
   const MainHeader = () => (
     <div className="flex items-center justify-between p-4 bg-[#0a192f] border-b border-blue-900/20 sticky top-0 z-40">
       <div className="flex items-center gap-2">
@@ -246,33 +201,31 @@ export default function App() {
     <div className="bg-[#050d1a] min-h-screen text-white font-sans selection:bg-blue-500/30">
       <div className="max-w-md mx-auto w-full min-h-screen flex flex-col relative bg-[#0a192f] border-x border-blue-900/10 shadow-2xl">
         
-        {/* Welcome View */}
         {view === 'welcome' && (
           <div className="flex flex-col flex-1 items-center justify-center p-10 text-center">
             <div className="w-32 h-32 bg-[#112240] rounded-[2.5rem] border border-blue-500/20 mb-8 flex items-center justify-center overflow-hidden p-2">
-              <img src={formatImg(LOGO_URL)} className="w-full h-full object-contain" alt="L" />
+              <img src={formatImg(LOGO_URL)} className="w-full h-full object-contain" alt="Logo" />
             </div>
             <h1 className="text-4xl font-black mb-10 tracking-tighter uppercase">MM Tech</h1>
             <button onClick={handleLogin} className="w-full max-w-xs bg-white text-black py-4 rounded-2xl font-black shadow-xl active:scale-95 transition-all">Login with Google</button>
           </div>
         )}
 
-        {/* Home View */}
         {view === 'home' && (
           <>
             <MainHeader />
             <div className="p-6 pb-40 text-left">
               <h1 className="text-3xl font-black mb-6">Store</h1>
               <div className="flex gap-2 overflow-x-auto no-scrollbar pb-6">
-                <button onClick={() => setSelectedCat(null)} className={`px-5 py-2 rounded-full text-[11px] font-black border ${!selectedCat ? 'bg-blue-600 border-blue-500 shadow-lg shadow-blue-500/20' : 'bg-[#112240] border-blue-900/30'}`}>All</button>
+                <button onClick={() => setSelectedCat(null)} className={`px-5 py-2 rounded-full text-[11px] font-black border ${!selectedCat ? 'bg-blue-600 border-blue-500' : 'bg-[#112240] border-blue-900/30'}`}>All</button>
                 {dynamicCategories.map(c => (
-                  <button key={c.id} onClick={() => setSelectedCat(c.id)} className={`px-5 py-2 rounded-full text-[11px] font-black border whitespace-nowrap ${selectedCat === c.id ? 'bg-blue-600 border-blue-400 shadow-lg shadow-blue-500/20' : 'bg-[#112240] border-blue-900/30'}`}>{c.name}</button>
+                  <button key={c.id} onClick={() => setSelectedCat(c.id)} className={`px-5 py-2 rounded-full text-[11px] font-black border whitespace-nowrap ${selectedCat === c.id ? 'bg-blue-600 border-blue-400' : 'bg-[#112240] border-blue-900/30'}`}>{c.name}</button>
                 ))}
               </div>
               <div className="grid grid-cols-2 gap-4">
                 {groupedProducts.filter(g => !selectedCat || g.category === selectedCat).map(group => (
                   <div key={group.name} onClick={() => { setSelectedGroup(group); setView('group_details'); }} className="bg-[#112240]/40 p-3 rounded-2xl border border-blue-900/10 active:scale-95 transition-all cursor-pointer">
-                    <div className="aspect-square bg-[#0a192f] rounded-xl overflow-hidden mb-3"><img src={formatImg(group.image)} className="w-full h-full object-cover" alt="I" /></div>
+                    <div className="aspect-square bg-[#0a192f] rounded-xl overflow-hidden mb-3"><img src={formatImg(group.image)} className="w-full h-full object-cover" alt="Img" /></div>
                     <h4 className="text-[11px] font-black truncate text-white uppercase">{group.name}</h4>
                   </div>
                 ))}
@@ -282,7 +235,6 @@ export default function App() {
           </>
         )}
 
-        {/* Group Details View */}
         {view === 'group_details' && (
           <div className="flex flex-col flex-1 pb-40 text-left">
             <MainHeader />
@@ -302,34 +254,36 @@ export default function App() {
           </div>
         )}
 
-        {/* --- CHECKOUT VIEW (ပုံ ၂ ပါအတိုင်း ပြင်ဆင်ထားသည်) --- */}
+        {/* --- CHECKOUT VIEW (Updated) --- */}
         {view === 'checkout' && (
           <div className="p-4 flex flex-col flex-1 pb-40 text-left w-full overflow-y-auto no-scrollbar">
             <MainHeader />
             <button onClick={() => setView('group_details')} className="w-10 h-10 bg-[#112240] rounded-xl flex items-center justify-center my-4 text-white border border-blue-900/20"><ArrowLeft size={20}/></button>
             
-            {/* Product Card */}
             <div className="bg-[#112240] p-6 rounded-[2rem] border border-blue-900/30 text-center mb-6 relative overflow-hidden">
               <img src={formatImg(getPProp(selectedPlan, 'Link'))} className="w-20 h-20 mx-auto mb-4 rounded-3xl object-cover" alt="Product"/>
               <h3 className="text-xl font-black text-white uppercase">{getPProp(selectedPlan, 'Name')}</h3>
-              <p className="text-blue-400 text-[9px] mb-4 font-bold tracking-widest">{getPProp(selectedPlan, 'Plan')}</p>
+              
+              {/* Des column data added here */}
+              <p className="text-blue-400 text-[10px] font-bold tracking-widest uppercase mb-1">{getPProp(selectedPlan, 'Plan')}</p>
+              <p className="text-slate-400 text-[10px] mb-4 italic px-4 line-clamp-2">{getPProp(selectedPlan, 'Des')}</p>
+              
               <div className="text-2xl font-black bg-[#0a192f] py-3 px-8 rounded-2xl inline-block">{getDisplayPrice(selectedPlan)} Ks</div>
             </div>
 
-            {/* Details Input */}
             <div className="mb-6">
-              <label className="block text-slate-500 text-[10px] font-black uppercase mb-3 ml-2">Customer Details (ID, Pass, Phone)</label>
+              <label className="block text-slate-500 text-[10px] font-black uppercase mb-3 ml-2 tracking-widest">Customer Details (ID, Pass, Phone)</label>
               <textarea rows="3" placeholder="လိုအပ်သော အချက်အလက်များ ဒီမှာ ရေးပေးပါ..." className="w-full bg-[#112240] border border-blue-900/30 p-4 rounded-2xl text-white outline-none focus:border-blue-500 text-sm" value={editContact} onChange={e => setEditContact(e.target.value)} />
             </div>
 
-            {/* Multi-Image Upload (ပုံ ၂ ပါအတိုင်း Box ၃ ခု) */}
+            {/* Tech Images Upload */}
             <div className="mb-6">
-              <label className="block text-slate-500 text-[10px] font-black uppercase mb-3 ml-2">လိုအပ်သော ပုံများထည့်ရန်</label>
+              <label className="block text-slate-500 text-[10px] font-black uppercase mb-3 ml-2 tracking-widest">လိုအပ်သော ပုံများထည့်ရန်</label>
               <div className="grid grid-cols-3 gap-3">
                 {[0, 1, 2].map((idx) => (
                   <div key={idx} className="relative aspect-square bg-[#112240] border-2 border-dashed border-blue-900/30 rounded-2xl flex items-center justify-center overflow-hidden">
                     {techImages[idx] ? (
-                      <img src={techImages[idx]} className="w-full h-full object-cover" alt="upload"/>
+                      <img src={techImages[idx]} className="w-full h-full object-cover" alt="tech"/>
                     ) : (
                       <label className="cursor-pointer w-full h-full flex items-center justify-center">
                         <Plus className="text-blue-500" size={24}/>
@@ -341,9 +295,9 @@ export default function App() {
               </div>
             </div>
 
-            {/* Payment Method Grid */}
+            {/* Payment Grid */}
             <div className="mb-6">
-              <label className="block text-slate-500 text-[10px] font-black uppercase mb-3 ml-2">Payment Methode</label>
+              <label className="block text-slate-500 text-[10px] font-black uppercase mb-3 ml-2 tracking-widest">Payment Methode</label>
               <div className="grid grid-cols-4 gap-2">
                 {[
                   { id: 'kpay', name: 'KBZ Pay', num: '09 402021942', user: 'Daw Hnin Pwint Phyu', img: 'https://i.ibb.co/Jj3SFW3C/kpay-logo.png' },
@@ -351,40 +305,47 @@ export default function App() {
                   { id: 'wave', name: 'Wave Money', num: '09 793655312', user: 'U Sai Khun Thet Hein', img: 'https://i.ibb.co/23yq59BX/wave-pay.png' },
                   { id: 'ayapay', name: 'AYA Pay', num: '09 2021942', user: 'U Htet Wai Soe', img: 'https://i.ibb.co/GQyyTxh2/uabpay.png' }
                 ].map(m => (
-                  <button key={m.id} onClick={() => setSelectedPayment(m)} className={`p-2 rounded-xl border transition-all aspect-square flex items-center justify-center bg-white ${selectedPayment?.id === m.id ? 'border-blue-500 border-4' : 'border-transparent'}`}>
+                  <button key={m.id} onClick={() => setSelectedPayment(m)} className={`p-2 rounded-xl border transition-all aspect-square flex items-center justify-center bg-white ${selectedPayment?.id === m.id ? 'border-blue-500 border-4 scale-95' : 'border-transparent'}`}>
                     <img src={m.img} className="w-full h-auto max-h-10 object-contain" alt={m.name}/>
                   </button>
                 ))}
               </div>
-              
-              {/* Dynamic Payment Info */}
               {selectedPayment && (
-                <div className="mt-4 p-4 bg-blue-500/10 border border-blue-500/30 rounded-2xl animate-in fade-in duration-300">
-                  <p className="text-[10px] font-black text-blue-400 uppercase">{selectedPayment.name} Account Info:</p>
-                  <h4 className="text-lg font-black text-white mt-1">{selectedPayment.num}</h4>
+                <div className="mt-4 p-4 bg-blue-500/10 border border-blue-500/30 rounded-2xl animate-in fade-in zoom-in duration-300">
+                  <p className="text-[10px] font-black text-blue-400 uppercase">{selectedPayment.name} Account:</p>
+                  <h4 className="text-lg font-black text-white">{selectedPayment.num}</h4>
                   <p className="text-[10px] text-slate-400 font-bold">Name: {selectedPayment.user}</p>
                 </div>
               )}
             </div>
 
-            {/* Payment Screenshot Button */}
+            {/* Payment Screenshot with Preview */}
             <div className="mb-8">
-              <label className="cursor-pointer block w-full bg-[#112240] py-3 rounded-xl border border-blue-900/30 text-center text-[11px] font-black text-blue-400">
-                {payImg ? "✓ Screenshot Uploaded" : "payment screenshot ပို့ရန်"}
-                <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e.target.files[0], 0, 'pay')} />
-              </label>
+              <label className="block text-slate-500 text-[10px] font-black uppercase mb-3 ml-2 tracking-widest">Payment Screenshot</label>
+              <div className="relative w-full aspect-video bg-[#112240] border-2 border-dashed border-blue-900/30 rounded-2xl overflow-hidden flex items-center justify-center">
+                {payImg ? (
+                  <div className="relative w-full h-full">
+                    <img src={payImg} className="w-full h-full object-contain bg-black/40" alt="pay"/>
+                    <button onClick={() => setPayImg("")} className="absolute top-2 right-2 p-1 bg-red-500 rounded-full text-white shadow-lg"><X size={16}/></button>
+                  </div>
+                ) : (
+                  <label className="cursor-pointer w-full h-full flex flex-col items-center justify-center gap-2">
+                    <ImageIcon className="text-blue-500" size={32}/>
+                    <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">ငွေလွှဲ Screenshot တင်ရန်</span>
+                    <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e.target.files[0], 0, 'pay')} />
+                  </label>
+                )}
+              </div>
             </div>
 
-            {/* Confirm Button */}
             <button onClick={handleOrder} disabled={loading || !payImg} className="w-full bg-blue-600 py-5 rounded-2xl font-black text-white shadow-xl flex items-center justify-center gap-3 active:scale-95 transition-all disabled:opacity-50">
               {loading ? <Loader2 className="animate-spin" /> : <><Send size={20}/> Confirm Order</>}
             </button>
           </div>
         )}
 
-        {/* Order Success View */}
         {view === 'order_success' && (
-          <div className="flex-1 flex flex-col items-center justify-center p-12 text-center">
+          <div className="flex-1 flex flex-col items-center justify-center p-12 text-center animate-in zoom-in duration-500">
             <CheckCircle2 size={80} className="text-green-500 mb-6 animate-bounce" />
             <h2 className="text-3xl font-black mb-4">SUCCESS!</h2>
             <p className="text-slate-400 text-sm mb-12">အော်ဒါတင်ခြင်း အောင်မြင်ပါသည်။</p>
@@ -392,19 +353,15 @@ export default function App() {
           </div>
         )}
 
-        {/* History View */}
         {view === 'customer_dash' && (
           <div className="p-8 flex flex-col flex-1 pb-40 text-left">
             <MainHeader />
-            <h2 className="text-3xl font-black mb-8 mt-4">History</h2>
+            <h2 className="text-3xl font-black mb-8 mt-4 tracking-tight">History</h2>
             <div className="space-y-4 overflow-y-auto no-scrollbar">
-              {myOrders.length === 0 ? <p className="text-slate-500 text-center py-20 font-bold">No orders found.</p> : myOrders.map(o => (
-                <div key={o.id} className="bg-[#112240] p-6 rounded-[2.5rem] border border-blue-900/30 shadow-lg">
+              {myOrders.length === 0 ? <p className="text-slate-500 text-center py-20">No orders found.</p> : myOrders.map(o => (
+                <div key={o.id} className="bg-[#112240] p-6 rounded-[2.5rem] border border-blue-900/30">
                   <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <h4 className="font-black text-sm uppercase">{o.product}</h4>
-                      <p className="text-blue-500 text-[10px] font-black">{o.plan} • {o.price} Ks</p>
-                    </div>
+                    <div><h4 className="font-black text-sm uppercase">{o.product}</h4><p className="text-blue-500 text-[10px] font-black">{o.plan} • {o.price} Ks</p></div>
                     <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase ${o.status === 'Completed' ? 'bg-green-500/10 text-green-500' : 'bg-yellow-500/10 text-yellow-500'}`}>{o.status}</span>
                   </div>
                   {o.result && <div className="mt-4 p-4 bg-green-500/10 border border-green-500/20 rounded-2xl text-[12px] font-black text-green-400">Result: {o.result}</div>}
@@ -416,15 +373,15 @@ export default function App() {
           </div>
         )}
 
-        {/* Admin Dashboard */}
+        {/* --- ADMIN PANEL (Displaying ALL images) --- */}
         {view === 'admin_dash' && profile?.role === 'admin' && (
           <div className="p-8 flex flex-col flex-1 pb-40 text-left">
             <MainHeader />
-            <div className="flex justify-between items-center mb-10 mt-4">
+            <div className="flex justify-between items-center mb-8 mt-4">
               <h2 className="text-2xl font-black uppercase">Admin Panel</h2>
               <div className="flex bg-[#112240] p-1 rounded-2xl">
-                <button onClick={() => setAdminTab('orders')} className={`px-4 py-2 rounded-xl text-[10px] font-black ${adminTab === 'orders' ? 'bg-blue-600 shadow-lg shadow-blue-500/20' : 'text-slate-500'}`}>ORDERS</button>
-                <button onClick={() => setAdminTab('members')} className={`px-4 py-2 rounded-xl text-[10px] font-black ${adminTab === 'members' ? 'bg-blue-600 shadow-lg shadow-blue-500/20' : 'text-slate-500'}`}>USERS</button>
+                <button onClick={() => setAdminTab('orders')} className={`px-4 py-2 rounded-xl text-[10px] font-black ${adminTab === 'orders' ? 'bg-blue-600' : 'text-slate-500'}`}>ORDERS</button>
+                <button onClick={() => setAdminTab('members')} className={`px-4 py-2 rounded-xl text-[10px] font-black ${adminTab === 'members' ? 'bg-blue-600' : 'text-slate-500'}`}>USERS</button>
               </div>
             </div>
             <div className="flex-1 overflow-y-auto no-scrollbar space-y-4">
@@ -432,32 +389,54 @@ export default function App() {
                 <div key={o.id} className="bg-[#112240] p-6 rounded-[2rem] border border-blue-900/30">
                    <div className="flex justify-between items-start mb-4">
                     <div className="max-w-[70%]">
-                      <h4 className="font-black text-sm truncate uppercase">{o.product}</h4>
+                      <h4 className="font-black text-sm uppercase">{o.product}</h4>
                       <p className="text-[10px] text-blue-500 font-black">{o.plan} - {o.price} Ks</p>
-                      <p className="text-[10px] text-slate-400 mt-1 font-bold">User: {o.userName}</p>
+                      <p className="text-[10px] text-slate-400 mt-1 font-bold italic">By: {o.userName}</p>
                     </div>
                     <span className={`px-2 py-1 rounded text-[9px] font-black uppercase ${o.status === 'Completed' ? 'bg-green-500/10 text-green-500' : 'bg-yellow-500/10 text-yellow-500'}`}>{o.status}</span>
                   </div>
+                  
                   <div className="bg-[#0a192f] p-4 rounded-xl text-[11px] mb-4 text-slate-300">
-                    <p className="mb-2"><span className="text-blue-400 font-black underline">Details:</span><br/>{o.contact}</p>
-                    {o.payImage && <a href={o.payImage} target="_blank" rel="noreferrer" className="text-green-500 font-black underline flex items-center gap-1 mt-2"><ImageIcon size={12}/> View Receipt</a>}
+                    <p className="mb-2 font-bold text-blue-400 underline">Details:</p>
+                    <p className="whitespace-pre-wrap">{o.contact}</p>
+                    
+                    {/* Display Tech Images in Admin View */}
+                    {o.techImages && o.techImages.length > 0 && (
+                      <div className="mt-4">
+                        <p className="mb-2 font-bold text-green-400">Attached Images:</p>
+                        <div className="flex gap-2 overflow-x-auto pb-2">
+                          {o.techImages.map((img, i) => (
+                            <a key={i} href={img} target="_blank" rel="noreferrer" className="w-12 h-12 rounded-lg overflow-hidden border border-blue-900 flex-shrink-0">
+                              <img src={img} className="w-full h-full object-cover" alt="tech"/>
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {o.payImage && (
+                      <a href={o.payImage} target="_blank" rel="noreferrer" className="text-green-500 font-black underline flex items-center gap-1 mt-4">
+                        <ImageIcon size={12}/> View Receipt (ငွေလွှဲပြေစာ)
+                      </a>
+                    )}
                   </div>
+                  
                   {o.status === 'Pending' && (
                     <div className="flex gap-2">
-                      <input type="text" placeholder="Result code..." className="flex-1 bg-[#0a192f] p-3 rounded-xl text-[11px] outline-none border border-blue-900/30" value={deliveryInputs[o.id] || ''} onChange={(e) => setDeliveryInputs({...deliveryInputs, [o.id]: e.target.value})} />
+                      <input type="text" placeholder="Result/Reply..." className="flex-1 bg-[#0a192f] p-3 rounded-xl text-[11px] outline-none border border-blue-900/30" value={deliveryInputs[o.id] || ''} onChange={(e) => setDeliveryInputs({...deliveryInputs, [o.id]: e.target.value})} />
                       <button onClick={() => updateStatus(o.id, 'Completed', deliveryInputs[o.id])} className="bg-blue-600 px-4 rounded-xl font-black text-[10px]">DONE</button>
                     </div>
                   )}
                 </div>
               )) : allMembers.map(m => (
-                <div key={m.uid} className="bg-[#112240] p-4 rounded-2xl flex items-center justify-between border border-blue-900/10">
+                <div key={m.uid} className="bg-[#112240] p-4 rounded-2xl flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <img src={m.photoURL || LOGO_URL} className="w-10 h-10 rounded-xl" alt="M"/>
-                    <div><p className="text-xs font-black">{m.name}</p><p className="text-[9px] text-blue-500 uppercase font-black">{m.tier}</p></div>
+                    <div><p className="text-xs font-black">{m.name}</p><p className="text-[9px] text-blue-500 uppercase">{m.tier}</p></div>
                   </div>
                   <div className="flex gap-1">
                     {['Standard', 'VIP', 'Reseller'].map(t => (
-                      <button key={t} onClick={() => updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'members', m.uid), {tier: t})} className={`px-2 py-1 rounded text-[8px] font-black ${m.tier === t ? 'bg-blue-600 shadow-md' : 'bg-slate-800 text-slate-500'}`}>{t[0]}</button>
+                      <button key={t} onClick={() => updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'members', m.uid), {tier: t})} className={`px-2 py-1 rounded text-[8px] font-black ${m.tier === t ? 'bg-blue-600' : 'bg-slate-800 text-slate-500'}`}>{t[0]}</button>
                     ))}
                   </div>
                 </div>
@@ -467,15 +446,14 @@ export default function App() {
           </div>
         )}
 
-        {/* Profile View */}
         {view === 'profile' && (
           <div className="p-8 flex flex-col flex-1 pb-40 text-left">
             <MainHeader />
             <div className="flex flex-col items-center py-12">
               <img src={profile?.photoURL || LOGO_URL} className="w-24 h-24 rounded-[2rem] border-4 border-blue-600/20 mb-4 shadow-2xl" alt="U"/>
-              <h3 className="text-2xl font-black tracking-tight">{profile?.name}</h3>
+              <h3 className="text-2xl font-black">{profile?.name}</h3>
               <p className="text-blue-500 font-black uppercase tracking-widest text-[10px] mb-12">{profile?.tier} Account</p>
-              <button onClick={() => auth.signOut()} className="flex items-center gap-2 text-red-500 font-black text-sm hover:opacity-80 transition-all"><LogOut size={18}/> Sign Out Account</button>
+              <button onClick={() => auth.signOut()} className="flex items-center gap-2 text-red-500 font-black text-sm hover:opacity-80 transition-all"><LogOut size={18}/> Sign Out</button>
             </div>
             <BottomNav />
           </div>
