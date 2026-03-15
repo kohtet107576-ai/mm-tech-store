@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, setPersistence, browserLocalPersistence, signOut } from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, collection, addDoc, onSnapshot, updateDoc, query, orderBy } from 'firebase/firestore';
-import { ShoppingBag, Gamepad2, Smartphone, ChevronRight, ArrowLeft, CheckCircle2, Loader2, User, ShieldCheck, LogOut, Send, Save, Layers, Image as ImageIcon, History } from 'lucide-react';
+import { ShoppingBag, Gamepad2, Smartphone, ChevronRight, ArrowLeft, CheckCircle2, Loader2, User, ShieldCheck, LogOut, Send, Save, Layers, Image as ImageIcon, History, Plus } from 'lucide-react';
 
 // --- CONFIGURATION ---
 const LOGO_URL = "https://drive.google.com/thumbnail?id=1Lh-nHgyLMSr3rBVe4OGnjEvEspuMokd6&sz=w1000"; 
@@ -54,7 +54,9 @@ export default function App() {
   const [adminTab, setAdminTab] = useState('orders');
   const [deliveryInputs, setDeliveryInputs] = useState({});
   const [selectedPayment, setSelectedPayment] = useState(null);
-  const [techImg, setTechImg] = useState("");
+  
+  // အသစ်ပြင်ဆင်ထားသော ပုံ ၃ ပုံ သိမ်းဆည်းရန် State
+  const [techImages, setTechImages] = useState([null, null, null]);
   const [payImg, setPayImg] = useState("");
 
   const dynamicCategories = useMemo(() => {
@@ -124,7 +126,8 @@ export default function App() {
 
   const handleLogin = async () => { try { await signInWithPopup(auth, googleProvider); } catch (e) { console.error(e); } };
 
-  const handleImageUpload = async (file, type) => {
+  // Multi-image upload logic
+  const handleImageUpload = async (file, index, type) => {
     if (!file) return;
     setLoading(true);
     const formData = new FormData();
@@ -133,10 +136,15 @@ export default function App() {
       const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, { method: "POST", body: formData });
       const data = await res.json();
       if (data.success) {
-        if (type === 'tech') setTechImg(data.data.url);
-        else setPayImg(data.data.url);
+        if (type === 'tech') {
+          const updatedImages = [...techImages];
+          updatedImages[index] = data.data.url;
+          setTechImages(updatedImages);
+        } else {
+          setPayImg(data.data.url);
+        }
       }
-    } catch (e) { alert("ပုံတင်လို့ မရပါဘူး၊ VPN ဖွင့်ထားဖို့ လိုအပ်နိုင်ပါတယ်"); } 
+    } catch (e) { alert("ပုံတင်လို့ မရပါဘူး၊ VPN လိုအပ်နိုင်ပါတယ်"); } 
     finally { setLoading(false); }
   };
 
@@ -158,7 +166,7 @@ export default function App() {
       price: getDisplayPrice(selectedPlan),
       contact: editContact, 
       paymentMethod: selectedPayment?.name || 'KPay',
-      techImage: techImg, 
+      techImages: techImages.filter(img => img !== null), // null မဟုတ်တဲ့ ပုံတွေကိုပဲ ပို့မယ်
       payImage: payImg, 
       status: 'Pending', 
       timestamp: Date.now(),
@@ -166,21 +174,10 @@ export default function App() {
     };
 
     try {
-      // ၁။ Firebase သိမ်းဆည်းခြင်း
       await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'orders'), orderData);
       
-      // ၂။ Telegram Notification ပို့ဆောင်ခြင်း
-      const teleMsg = `
-🔔 *Order အသစ်ရောက်ရှိ!*
--------------------------
-👤 *အမည်:* ${orderData.userName}
-📦 *ပစ္စည်း:* ${orderData.product} (${orderData.plan})
-💰 *ဈေးနှုန်း:* ${orderData.price} Ks
-📞 *အချက်အလက်:* ${orderData.contact}
--------------------------
-📱 [ငွေလွှဲပြေစာ ကြည့်ရန်](${orderData.payImage})
-      `;
-
+      const teleMsg = `🔔 *Order အသစ်ရပါပြီ!*\n👤 အမည်: ${orderData.userName}\n📦 ပစ္စည်း: ${orderData.product} (${orderData.plan})\n💰 ဈေးနှုန်း: ${orderData.price} Ks\n📞 အချက်အလက်: ${orderData.contact}\n📱 [ငွေလွှဲပြေစာ](${orderData.payImage})`;
+      
       fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -191,10 +188,9 @@ export default function App() {
         })
       });
 
-      // ၃။ Google Sheet သိမ်းဆည်းခြင်း
       fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(orderData) });
 
-      setTechImg(""); setPayImg(""); setEditContact(""); setSelectedPayment(null);
+      setTechImages([null, null, null]); setPayImg(""); setEditContact(""); setSelectedPayment(null);
       setView('order_success');
     } catch (e) { 
       alert("Error ordering: " + e.message); 
@@ -222,7 +218,7 @@ export default function App() {
     return Object.values(groups);
   }, [products]);
 
-  // --- UI COMPONENTS --- (Header, BottomNav, etc.)
+  // --- UI COMPONENTS ---
   const MainHeader = () => (
     <div className="flex items-center justify-between p-4 bg-[#0a192f] border-b border-blue-900/20 sticky top-0 z-40">
       <div className="flex items-center gap-2">
@@ -231,10 +227,7 @@ export default function App() {
         </div>
         <h2 className="text-md font-black text-white uppercase tracking-tighter">MM Tech</h2>
       </div>
-      <button onClick={() => setView('customer_dash')} className="text-white relative">
-        <ShoppingBag size={20}/>
-        {myOrders.some(o => o.status === 'Completed') && <span className="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full"></span>}
-      </button>
+      <button onClick={() => setView('customer_dash')} className="text-white relative"><ShoppingBag size={20}/></button>
     </div>
   );
 
@@ -253,6 +246,7 @@ export default function App() {
     <div className="bg-[#050d1a] min-h-screen text-white font-sans selection:bg-blue-500/30">
       <div className="max-w-md mx-auto w-full min-h-screen flex flex-col relative bg-[#0a192f] border-x border-blue-900/10 shadow-2xl">
         
+        {/* Welcome View */}
         {view === 'welcome' && (
           <div className="flex flex-col flex-1 items-center justify-center p-10 text-center">
             <div className="w-32 h-32 bg-[#112240] rounded-[2.5rem] border border-blue-500/20 mb-8 flex items-center justify-center overflow-hidden p-2">
@@ -263,6 +257,7 @@ export default function App() {
           </div>
         )}
 
+        {/* Home View */}
         {view === 'home' && (
           <>
             <MainHeader />
@@ -287,6 +282,7 @@ export default function App() {
           </>
         )}
 
+        {/* Group Details View */}
         {view === 'group_details' && (
           <div className="flex flex-col flex-1 pb-40 text-left">
             <MainHeader />
@@ -306,31 +302,87 @@ export default function App() {
           </div>
         )}
 
+        {/* --- CHECKOUT VIEW (ပုံ ၂ ပါအတိုင်း ပြင်ဆင်ထားသည်) --- */}
         {view === 'checkout' && (
           <div className="p-4 flex flex-col flex-1 pb-40 text-left w-full overflow-y-auto no-scrollbar">
             <MainHeader />
-            <button onClick={() => setView('group_details')} className="w-10 h-10 bg-[#112240] rounded-xl flex items-center justify-center my-6 text-white border border-blue-900/20"><ArrowLeft size={20}/></button>
-            <div className="bg-[#112240] p-8 rounded-[2rem] border border-blue-900/30 text-center mb-6 shadow-2xl relative overflow-hidden">
-              <img src={formatImg(getPProp(selectedPlan, 'Link'))} className="w-24 h-24 mx-auto mb-6 rounded-3xl object-cover border-4 border-blue-600/20 shadow-xl" alt="Product"/>
-              <h3 className="text-2xl font-black text-white tracking-tighter uppercase">{getPProp(selectedPlan, 'Name')}</h3>
-              <p className="text-blue-400 font-bold mb-4 uppercase text-[10px] tracking-widest">{getPProp(selectedPlan, 'Plan')}</p>
-              <div className="text-3xl font-black bg-[#0a192f]/50 py-4 rounded-2xl text-white inline-block px-10 shadow-inner">{getDisplayPrice(selectedPlan)} Ks</div>
+            <button onClick={() => setView('group_details')} className="w-10 h-10 bg-[#112240] rounded-xl flex items-center justify-center my-4 text-white border border-blue-900/20"><ArrowLeft size={20}/></button>
+            
+            {/* Product Card */}
+            <div className="bg-[#112240] p-6 rounded-[2rem] border border-blue-900/30 text-center mb-6 relative overflow-hidden">
+              <img src={formatImg(getPProp(selectedPlan, 'Link'))} className="w-20 h-20 mx-auto mb-4 rounded-3xl object-cover" alt="Product"/>
+              <h3 className="text-xl font-black text-white uppercase">{getPProp(selectedPlan, 'Name')}</h3>
+              <p className="text-blue-400 text-[9px] mb-4 font-bold tracking-widest">{getPProp(selectedPlan, 'Plan')}</p>
+              <div className="text-2xl font-black bg-[#0a192f] py-3 px-8 rounded-2xl inline-block">{getDisplayPrice(selectedPlan)} Ks</div>
             </div>
+
+            {/* Details Input */}
             <div className="mb-6">
-              <label className="block text-slate-500 text-[10px] font-black uppercase mb-3 ml-2 tracking-widest">Customer Details (ID, Pass, Phone)</label>
-              <textarea rows="4" placeholder="လိုအပ်သော အချက်အလက်များ ဒီမှာ ရေးပေးပါ..." className="w-full bg-[#112240] border border-blue-900/30 p-5 rounded-2xl text-white outline-none focus:border-blue-500 text-sm" value={editContact} onChange={e => setEditContact(e.target.value)} />
+              <label className="block text-slate-500 text-[10px] font-black uppercase mb-3 ml-2">Customer Details (ID, Pass, Phone)</label>
+              <textarea rows="3" placeholder="လိုအပ်သော အချက်အလက်များ ဒီမှာ ရေးပေးပါ..." className="w-full bg-[#112240] border border-blue-900/30 p-4 rounded-2xl text-white outline-none focus:border-blue-500 text-sm" value={editContact} onChange={e => setEditContact(e.target.value)} />
             </div>
+
+            {/* Multi-Image Upload (ပုံ ၂ ပါအတိုင်း Box ၃ ခု) */}
+            <div className="mb-6">
+              <label className="block text-slate-500 text-[10px] font-black uppercase mb-3 ml-2">လိုအပ်သော ပုံများထည့်ရန်</label>
+              <div className="grid grid-cols-3 gap-3">
+                {[0, 1, 2].map((idx) => (
+                  <div key={idx} className="relative aspect-square bg-[#112240] border-2 border-dashed border-blue-900/30 rounded-2xl flex items-center justify-center overflow-hidden">
+                    {techImages[idx] ? (
+                      <img src={techImages[idx]} className="w-full h-full object-cover" alt="upload"/>
+                    ) : (
+                      <label className="cursor-pointer w-full h-full flex items-center justify-center">
+                        <Plus className="text-blue-500" size={24}/>
+                        <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e.target.files[0], idx, 'tech')} />
+                      </label>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Payment Method Grid */}
+            <div className="mb-6">
+              <label className="block text-slate-500 text-[10px] font-black uppercase mb-3 ml-2">Payment Methode</label>
+              <div className="grid grid-cols-4 gap-2">
+                {[
+                  { id: 'kpay', name: 'KBZ Pay', num: '09 402021942', user: 'Daw Hnin Pwint Phyu', img: 'https://i.ibb.co/Jj3SFW3C/kpay-logo.png' },
+                  { id: 'visa', name: 'VISA', num: '4052 6403 0832 7313', user: 'U Htet Wai Soe', img: 'https://i.ibb.co/HLR2TxPr/Untitled-1.png' },
+                  { id: 'wave', name: 'Wave Money', num: '09 793655312', user: 'U Sai Khun Thet Hein', img: 'https://i.ibb.co/23yq59BX/wave-pay.png' },
+                  { id: 'ayapay', name: 'AYA Pay', num: '09 2021942', user: 'U Htet Wai Soe', img: 'https://i.ibb.co/GQyyTxh2/uabpay.png' }
+                ].map(m => (
+                  <button key={m.id} onClick={() => setSelectedPayment(m)} className={`p-2 rounded-xl border transition-all aspect-square flex items-center justify-center bg-white ${selectedPayment?.id === m.id ? 'border-blue-500 border-4' : 'border-transparent'}`}>
+                    <img src={m.img} className="w-full h-auto max-h-10 object-contain" alt={m.name}/>
+                  </button>
+                ))}
+              </div>
+              
+              {/* Dynamic Payment Info */}
+              {selectedPayment && (
+                <div className="mt-4 p-4 bg-blue-500/10 border border-blue-500/30 rounded-2xl animate-in fade-in duration-300">
+                  <p className="text-[10px] font-black text-blue-400 uppercase">{selectedPayment.name} Account Info:</p>
+                  <h4 className="text-lg font-black text-white mt-1">{selectedPayment.num}</h4>
+                  <p className="text-[10px] text-slate-400 font-bold">Name: {selectedPayment.user}</p>
+                </div>
+              )}
+            </div>
+
+            {/* Payment Screenshot Button */}
             <div className="mb-8">
-              <label className="block text-slate-500 text-[10px] font-black uppercase mb-3 ml-2 tracking-widest">Payment Screenshot</label>
-              <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e.target.files[0], 'pay')} className="w-full text-[10px] bg-[#112240] rounded-2xl p-2" />
-              {payImg && <p className="text-[10px] text-green-500 mt-2 font-black">✓ Screenshot Uploaded</p>}
+              <label className="cursor-pointer block w-full bg-[#112240] py-3 rounded-xl border border-blue-900/30 text-center text-[11px] font-black text-blue-400">
+                {payImg ? "✓ Screenshot Uploaded" : "payment screenshot ပို့ရန်"}
+                <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e.target.files[0], 0, 'pay')} />
+              </label>
             </div>
-            <button onClick={handleOrder} disabled={loading || !payImg} className="w-full bg-blue-600 py-5 rounded-2xl font-black text-white shadow-xl flex items-center justify-center gap-3 disabled:opacity-50 active:scale-95 transition-all">
+
+            {/* Confirm Button */}
+            <button onClick={handleOrder} disabled={loading || !payImg} className="w-full bg-blue-600 py-5 rounded-2xl font-black text-white shadow-xl flex items-center justify-center gap-3 active:scale-95 transition-all disabled:opacity-50">
               {loading ? <Loader2 className="animate-spin" /> : <><Send size={20}/> Confirm Order</>}
             </button>
           </div>
         )}
 
+        {/* Order Success View */}
         {view === 'order_success' && (
           <div className="flex-1 flex flex-col items-center justify-center p-12 text-center">
             <CheckCircle2 size={80} className="text-green-500 mb-6 animate-bounce" />
@@ -340,13 +392,14 @@ export default function App() {
           </div>
         )}
 
+        {/* History View */}
         {view === 'customer_dash' && (
           <div className="p-8 flex flex-col flex-1 pb-40 text-left">
             <MainHeader />
             <h2 className="text-3xl font-black mb-8 mt-4">History</h2>
             <div className="space-y-4 overflow-y-auto no-scrollbar">
-              {myOrders.length === 0 ? <p className="text-slate-500 text-center py-20">No orders found.</p> : myOrders.map(o => (
-                <div key={o.id} className="bg-[#112240] p-6 rounded-[2.5rem] border border-blue-900/30">
+              {myOrders.length === 0 ? <p className="text-slate-500 text-center py-20 font-bold">No orders found.</p> : myOrders.map(o => (
+                <div key={o.id} className="bg-[#112240] p-6 rounded-[2.5rem] border border-blue-900/30 shadow-lg">
                   <div className="flex justify-between items-start mb-2">
                     <div>
                       <h4 className="font-black text-sm uppercase">{o.product}</h4>
@@ -363,27 +416,15 @@ export default function App() {
           </div>
         )}
 
-        {view === 'profile' && (
-          <div className="p-8 flex flex-col flex-1 pb-40 text-left">
-            <MainHeader />
-            <div className="flex flex-col items-center py-10">
-              <img src={profile?.photoURL || LOGO_URL} className="w-24 h-24 rounded-[2rem] border-4 border-blue-600/20 mb-4" alt="U"/>
-              <h3 className="text-2xl font-black">{profile?.name}</h3>
-              <p className="text-blue-500 font-black uppercase tracking-widest text-xs mb-8">{profile?.tier} Account</p>
-              <button onClick={() => auth.signOut()} className="flex items-center gap-2 text-red-500 font-black text-sm"><LogOut size={18}/> Sign Out</button>
-            </div>
-            <BottomNav />
-          </div>
-        )}
-
+        {/* Admin Dashboard */}
         {view === 'admin_dash' && profile?.role === 'admin' && (
           <div className="p-8 flex flex-col flex-1 pb-40 text-left">
             <MainHeader />
             <div className="flex justify-between items-center mb-10 mt-4">
               <h2 className="text-2xl font-black uppercase">Admin Panel</h2>
               <div className="flex bg-[#112240] p-1 rounded-2xl">
-                <button onClick={() => setAdminTab('orders')} className={`px-4 py-2 rounded-xl text-[10px] font-black ${adminTab === 'orders' ? 'bg-blue-600' : 'text-slate-500'}`}>ORDERS</button>
-                <button onClick={() => setAdminTab('members')} className={`px-4 py-2 rounded-xl text-[10px] font-black ${adminTab === 'members' ? 'bg-blue-600' : 'text-slate-500'}`}>USERS</button>
+                <button onClick={() => setAdminTab('orders')} className={`px-4 py-2 rounded-xl text-[10px] font-black ${adminTab === 'orders' ? 'bg-blue-600 shadow-lg shadow-blue-500/20' : 'text-slate-500'}`}>ORDERS</button>
+                <button onClick={() => setAdminTab('members')} className={`px-4 py-2 rounded-xl text-[10px] font-black ${adminTab === 'members' ? 'bg-blue-600 shadow-lg shadow-blue-500/20' : 'text-slate-500'}`}>USERS</button>
               </div>
             </div>
             <div className="flex-1 overflow-y-auto no-scrollbar space-y-4">
@@ -398,8 +439,8 @@ export default function App() {
                     <span className={`px-2 py-1 rounded text-[9px] font-black uppercase ${o.status === 'Completed' ? 'bg-green-500/10 text-green-500' : 'bg-yellow-500/10 text-yellow-500'}`}>{o.status}</span>
                   </div>
                   <div className="bg-[#0a192f] p-4 rounded-xl text-[11px] mb-4 text-slate-300">
-                    <p className="mb-2"><span className="text-blue-400">Details:</span> {o.contact}</p>
-                    {o.payImage && <a href={o.payImage} target="_blank" rel="noreferrer" className="text-green-500 font-black underline flex items-center gap-1"><ImageIcon size={12}/> View Receipt</a>}
+                    <p className="mb-2"><span className="text-blue-400 font-black underline">Details:</span><br/>{o.contact}</p>
+                    {o.payImage && <a href={o.payImage} target="_blank" rel="noreferrer" className="text-green-500 font-black underline flex items-center gap-1 mt-2"><ImageIcon size={12}/> View Receipt</a>}
                   </div>
                   {o.status === 'Pending' && (
                     <div className="flex gap-2">
@@ -409,18 +450,32 @@ export default function App() {
                   )}
                 </div>
               )) : allMembers.map(m => (
-                <div key={m.uid} className="bg-[#112240] p-4 rounded-2xl flex items-center justify-between">
+                <div key={m.uid} className="bg-[#112240] p-4 rounded-2xl flex items-center justify-between border border-blue-900/10">
                   <div className="flex items-center gap-3">
                     <img src={m.photoURL || LOGO_URL} className="w-10 h-10 rounded-xl" alt="M"/>
-                    <div><p className="text-xs font-black">{m.name}</p><p className="text-[9px] text-blue-500 uppercase">{m.tier}</p></div>
+                    <div><p className="text-xs font-black">{m.name}</p><p className="text-[9px] text-blue-500 uppercase font-black">{m.tier}</p></div>
                   </div>
                   <div className="flex gap-1">
                     {['Standard', 'VIP', 'Reseller'].map(t => (
-                      <button key={t} onClick={() => updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'members', m.uid), {tier: t})} className={`px-2 py-1 rounded text-[8px] font-black ${m.tier === t ? 'bg-blue-600' : 'bg-slate-800 text-slate-500'}`}>{t[0]}</button>
+                      <button key={t} onClick={() => updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'members', m.uid), {tier: t})} className={`px-2 py-1 rounded text-[8px] font-black ${m.tier === t ? 'bg-blue-600 shadow-md' : 'bg-slate-800 text-slate-500'}`}>{t[0]}</button>
                     ))}
                   </div>
                 </div>
               ))}
+            </div>
+            <BottomNav />
+          </div>
+        )}
+
+        {/* Profile View */}
+        {view === 'profile' && (
+          <div className="p-8 flex flex-col flex-1 pb-40 text-left">
+            <MainHeader />
+            <div className="flex flex-col items-center py-12">
+              <img src={profile?.photoURL || LOGO_URL} className="w-24 h-24 rounded-[2rem] border-4 border-blue-600/20 mb-4 shadow-2xl" alt="U"/>
+              <h3 className="text-2xl font-black tracking-tight">{profile?.name}</h3>
+              <p className="text-blue-500 font-black uppercase tracking-widest text-[10px] mb-12">{profile?.tier} Account</p>
+              <button onClick={() => auth.signOut()} className="flex items-center gap-2 text-red-500 font-black text-sm hover:opacity-80 transition-all"><LogOut size={18}/> Sign Out Account</button>
             </div>
             <BottomNav />
           </div>
