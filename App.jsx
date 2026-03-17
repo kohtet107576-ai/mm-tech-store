@@ -202,7 +202,6 @@ export default function App() {
       
       {/* ======================================================== */}
       {/* 📱 MOBILE VIEW (ဖုန်းဖြင့်ဝင်သောအခါ ပေါ်မည့်အပိုင်း) 📱 */}
-      {/* lg:hidden ထည့်ထားသဖြင့် ကွန်ပျူတာတွင် အလိုအလျောက် ပျောက်သွားပါမည် */}
       {/* ======================================================== */}
       <div className="lg:hidden max-w-md mx-auto w-full min-h-screen flex flex-col relative bg-[#0a192f] border-x border-blue-900/10 shadow-2xl">
         
@@ -259,6 +258,7 @@ export default function App() {
           </div>
         )}
 
+        {/* --- CHECKOUT VIEW (Updated Description Box) --- */}
         {view === 'checkout' && (
           <div className="p-4 flex flex-col flex-1 pb-40 text-left w-full overflow-y-auto no-scrollbar">
             <MainHeader />
@@ -268,10 +268,27 @@ export default function App() {
               <img src={formatImg(getPProp(selectedPlan, 'Link'))} className="w-20 h-20 mx-auto mb-4 rounded-3xl object-cover" alt="Product"/>
               <h3 className="text-xl font-black text-white uppercase">{getPProp(selectedPlan, 'Name')}</h3>
               
-              <p className="text-blue-400 text-[10px] font-bold tracking-widest uppercase mb-1">{getPProp(selectedPlan, 'Plan')}</p>
-              <p className="text-slate-400 text-[10px] mb-4 italic px-4 line-clamp-2">{getPProp(selectedPlan, 'Des')}</p>
+              <p className="text-blue-400 text-[10px] font-bold tracking-widest uppercase mb-4">{getPProp(selectedPlan, 'Plan')}</p>
               
-              <div className="text-2xl font-black bg-[#0a192f] py-3 px-8 rounded-2xl inline-block">{getDisplayPrice(selectedPlan)} Ks</div>
+              {/* ဈေးနှုန်း */}
+              <div className="text-2xl font-black bg-[#0a192f] py-3 px-8 rounded-2xl inline-block mb-2 shadow-inner">
+                {getDisplayPrice(selectedPlan)} Ks
+              </div>
+
+              {/* ✨ Description ကို သီးသန့် Box လေးနဲ့ စာလုံးအကုန်မြင်ရအောင် ပြင်ပေးထားသော နေရာ ✨ */}
+              {getPProp(selectedPlan, 'Des') && (
+                <div className="bg-[#050d1a] border border-blue-900/50 rounded-2xl p-4 mt-4 text-left shadow-inner">
+                  <div className="flex items-center gap-2 mb-2">
+                    <CheckCircle2 size={14} className="text-blue-500" />
+                    <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Plan Details</span>
+                  </div>
+                  {/* text-[12px] နဲ့ whitespace-pre-wrap ထည့်ထားလို့ စာအကုန်အပြည့်ပေါ်ပါမယ် */}
+                  <p className="text-slate-300 text-[12px] leading-relaxed whitespace-pre-wrap">
+                    {getPProp(selectedPlan, 'Des')}
+                  </p>
+                </div>
+              )}
+
             </div>
 
             <div className="mb-6">
@@ -461,7 +478,6 @@ export default function App() {
 
       {/* ========================================================== */}
       {/* 💻 DESKTOP VIEW (ကွန်ပျူတာဖြင့်ဝင်သောအခါ ပေါ်မည့်အပိုင်း) 💻 */}
-      {/* hidden lg:flex ထည့်ထားသဖြင့် ဖုန်းတွင် အလိုအလျောက် ပျောက်သွားပါမည် */}
       {/* ========================================================== */}
       <div className="hidden lg:flex w-full min-h-screen bg-[#0a192f] p-8 flex-col items-center justify-center">
         <div className="w-full max-w-5xl bg-[#112240] rounded-[2.5rem] border border-blue-900/30 p-12 text-center shadow-2xl">
@@ -481,216 +497,6 @@ export default function App() {
         </div>
       </div>
 
-    </div>
-  );
-}
-
-        {/* --- CHECKOUT VIEW (Updated) --- */}
-        {view === 'checkout' && (
-          <div className="p-4 flex flex-col flex-1 pb-40 text-left w-full overflow-y-auto no-scrollbar">
-            <MainHeader />
-            <button onClick={() => setView('group_details')} className="w-10 h-10 bg-[#112240] rounded-xl flex items-center justify-center my-4 text-white border border-blue-900/20"><ArrowLeft size={20}/></button>
-            
-            <div className="bg-[#112240] p-6 rounded-[2rem] border border-blue-900/30 text-center mb-6 relative overflow-hidden">
-              <img src={formatImg(getPProp(selectedPlan, 'Link'))} className="w-20 h-20 mx-auto mb-4 rounded-3xl object-cover" alt="Product"/>
-              <h3 className="text-xl font-black text-white uppercase">{getPProp(selectedPlan, 'Name')}</h3>
-              
-              {/* Des column data added here */}
-              <p className="text-blue-400 text-[10px] font-bold tracking-widest uppercase mb-1">{getPProp(selectedPlan, 'Plan')}</p>
-              <p className="text-slate-400 text-[10px] mb-4 italic px-4 line-clamp-2">{getPProp(selectedPlan, 'Des')}</p>
-              
-              <div className="text-2xl font-black bg-[#0a192f] py-3 px-8 rounded-2xl inline-block">{getDisplayPrice(selectedPlan)} Ks</div>
-            </div>
-
-            <div className="mb-6">
-              <label className="block text-slate-500 text-[10px] font-black uppercase mb-3 ml-2 tracking-widest">Customer Details (ID, Pass, Phone)</label>
-              <textarea rows="3" placeholder="လိုအပ်သော အချက်အလက်များ ဒီမှာ ရေးပေးပါ..." className="w-full bg-[#112240] border border-blue-900/30 p-4 rounded-2xl text-white outline-none focus:border-blue-500 text-sm" value={editContact} onChange={e => setEditContact(e.target.value)} />
-            </div>
-
-            {/* Tech Images Upload */}
-            <div className="mb-6">
-              <label className="block text-slate-500 text-[10px] font-black uppercase mb-3 ml-2 tracking-widest">လိုအပ်သော ပုံများထည့်ရန်</label>
-              <div className="grid grid-cols-3 gap-3">
-                {[0, 1, 2].map((idx) => (
-                  <div key={idx} className="relative aspect-square bg-[#112240] border-2 border-dashed border-blue-900/30 rounded-2xl flex items-center justify-center overflow-hidden">
-                    {techImages[idx] ? (
-                      <img src={techImages[idx]} className="w-full h-full object-cover" alt="tech"/>
-                    ) : (
-                      <label className="cursor-pointer w-full h-full flex items-center justify-center">
-                        <Plus className="text-blue-500" size={24}/>
-                        <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e.target.files[0], idx, 'tech')} />
-                      </label>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Payment Grid */}
-            <div className="mb-6">
-              <label className="block text-slate-500 text-[10px] font-black uppercase mb-3 ml-2 tracking-widest">Payment Methode</label>
-              <div className="grid grid-cols-4 gap-2">
-                {[
-                  { id: 'kpay', name: 'KBZ Pay', num: '09 402021942', user: 'Daw Hnin Pwint Phyu', img: 'https://i.ibb.co/Jj3SFW3C/kpay-logo.png' },
-                  { id: 'visa', name: 'VISA', num: '4052 6403 0832 7313', user: 'U Htet Wai Soe', img: 'https://i.ibb.co/HLR2TxPr/Untitled-1.png' },
-                  { id: 'wave', name: 'Wave Money', num: '09 793655312', user: 'U Sai Khun Thet Hein', img: 'https://i.ibb.co/23yq59BX/wave-pay.png' },
-                  { id: 'ayapay', name: 'AYA Pay', num: '09 2021942', user: 'U Htet Wai Soe', img: 'https://i.ibb.co/GQyyTxh2/uabpay.png' }
-                ].map(m => (
-                  <button key={m.id} onClick={() => setSelectedPayment(m)} className={`p-2 rounded-xl border transition-all aspect-square flex items-center justify-center bg-white ${selectedPayment?.id === m.id ? 'border-blue-500 border-4 scale-95' : 'border-transparent'}`}>
-                    <img src={m.img} className="w-full h-auto max-h-10 object-contain" alt={m.name}/>
-                  </button>
-                ))}
-              </div>
-              {selectedPayment && (
-                <div className="mt-4 p-4 bg-blue-500/10 border border-blue-500/30 rounded-2xl animate-in fade-in zoom-in duration-300">
-                  <p className="text-[10px] font-black text-blue-400 uppercase">{selectedPayment.name} Account:</p>
-                  <h4 className="text-lg font-black text-white">{selectedPayment.num}</h4>
-                  <p className="text-[10px] text-slate-400 font-bold">Name: {selectedPayment.user}</p>
-                </div>
-              )}
-            </div>
-
-            {/* Payment Screenshot with Preview */}
-            <div className="mb-8">
-              <label className="block text-slate-500 text-[10px] font-black uppercase mb-3 ml-2 tracking-widest">Payment Screenshot</label>
-              <div className="relative w-full aspect-video bg-[#112240] border-2 border-dashed border-blue-900/30 rounded-2xl overflow-hidden flex items-center justify-center">
-                {payImg ? (
-                  <div className="relative w-full h-full">
-                    <img src={payImg} className="w-full h-full object-contain bg-black/40" alt="pay"/>
-                    <button onClick={() => setPayImg("")} className="absolute top-2 right-2 p-1 bg-red-500 rounded-full text-white shadow-lg"><X size={16}/></button>
-                  </div>
-                ) : (
-                  <label className="cursor-pointer w-full h-full flex flex-col items-center justify-center gap-2">
-                    <ImageIcon className="text-blue-500" size={32}/>
-                    <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">ငွေလွှဲ Screenshot တင်ရန်</span>
-                    <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e.target.files[0], 0, 'pay')} />
-                  </label>
-                )}
-              </div>
-            </div>
-
-            <button onClick={handleOrder} disabled={loading || !payImg} className="w-full bg-blue-600 py-5 rounded-2xl font-black text-white shadow-xl flex items-center justify-center gap-3 active:scale-95 transition-all disabled:opacity-50">
-              {loading ? <Loader2 className="animate-spin" /> : <><Send size={20}/> Confirm Order</>}
-            </button>
-          </div>
-        )}
-
-        {view === 'order_success' && (
-          <div className="flex-1 flex flex-col items-center justify-center p-12 text-center animate-in zoom-in duration-500">
-            <CheckCircle2 size={80} className="text-green-500 mb-6 animate-bounce" />
-            <h2 className="text-3xl font-black mb-4">SUCCESS!</h2>
-            <p className="text-slate-400 text-sm mb-12">အော်ဒါတင်ခြင်း အောင်မြင်ပါသည်။</p>
-            <button onClick={() => setView('customer_dash')} className="w-full bg-blue-600 py-5 rounded-2xl font-black text-white">History ကြည့်မယ်</button>
-          </div>
-        )}
-
-        {view === 'customer_dash' && (
-          <div className="p-8 flex flex-col flex-1 pb-40 text-left">
-            <MainHeader />
-            <h2 className="text-3xl font-black mb-8 mt-4 tracking-tight">History</h2>
-            <div className="space-y-4 overflow-y-auto no-scrollbar">
-              {myOrders.length === 0 ? <p className="text-slate-500 text-center py-20">No orders found.</p> : myOrders.map(o => (
-                <div key={o.id} className="bg-[#112240] p-6 rounded-[2.5rem] border border-blue-900/30">
-                  <div className="flex justify-between items-start mb-2">
-                    <div><h4 className="font-black text-sm uppercase">{o.product}</h4><p className="text-blue-500 text-[10px] font-black">{o.plan} • {o.price} Ks</p></div>
-                    <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase ${o.status === 'Completed' ? 'bg-green-500/10 text-green-500' : 'bg-yellow-500/10 text-yellow-500'}`}>{o.status}</span>
-                  </div>
-                  {o.result && <div className="mt-4 p-4 bg-green-500/10 border border-green-500/20 rounded-2xl text-[12px] font-black text-green-400">Result: {o.result}</div>}
-                  <p className="text-[9px] text-slate-500 mt-4">{o.date}</p>
-                </div>
-              ))}
-            </div>
-            <BottomNav />
-          </div>
-        )}
-
-        {/* --- ADMIN PANEL (Displaying ALL images) --- */}
-        {view === 'admin_dash' && profile?.role === 'admin' && (
-          <div className="p-8 flex flex-col flex-1 pb-40 text-left">
-            <MainHeader />
-            <div className="flex justify-between items-center mb-8 mt-4">
-              <h2 className="text-2xl font-black uppercase">Admin Panel</h2>
-              <div className="flex bg-[#112240] p-1 rounded-2xl">
-                <button onClick={() => setAdminTab('orders')} className={`px-4 py-2 rounded-xl text-[10px] font-black ${adminTab === 'orders' ? 'bg-blue-600' : 'text-slate-500'}`}>ORDERS</button>
-                <button onClick={() => setAdminTab('members')} className={`px-4 py-2 rounded-xl text-[10px] font-black ${adminTab === 'members' ? 'bg-blue-600' : 'text-slate-500'}`}>USERS</button>
-              </div>
-            </div>
-            <div className="flex-1 overflow-y-auto no-scrollbar space-y-4">
-              {adminTab === 'orders' ? allOrders.map(o => (
-                <div key={o.id} className="bg-[#112240] p-6 rounded-[2rem] border border-blue-900/30">
-                   <div className="flex justify-between items-start mb-4">
-                    <div className="max-w-[70%]">
-                      <h4 className="font-black text-sm uppercase">{o.product}</h4>
-                      <p className="text-[10px] text-blue-500 font-black">{o.plan} - {o.price} Ks</p>
-                      <p className="text-[10px] text-slate-400 mt-1 font-bold italic">By: {o.userName}</p>
-                    </div>
-                    <span className={`px-2 py-1 rounded text-[9px] font-black uppercase ${o.status === 'Completed' ? 'bg-green-500/10 text-green-500' : 'bg-yellow-500/10 text-yellow-500'}`}>{o.status}</span>
-                  </div>
-                  
-                  <div className="bg-[#0a192f] p-4 rounded-xl text-[11px] mb-4 text-slate-300">
-                    <p className="mb-2 font-bold text-blue-400 underline">Details:</p>
-                    <p className="whitespace-pre-wrap">{o.contact}</p>
-                    
-                    {/* Display Tech Images in Admin View */}
-                    {o.techImages && o.techImages.length > 0 && (
-                      <div className="mt-4">
-                        <p className="mb-2 font-bold text-green-400">Attached Images:</p>
-                        <div className="flex gap-2 overflow-x-auto pb-2">
-                          {o.techImages.map((img, i) => (
-                            <a key={i} href={img} target="_blank" rel="noreferrer" className="w-12 h-12 rounded-lg overflow-hidden border border-blue-900 flex-shrink-0">
-                              <img src={img} className="w-full h-full object-cover" alt="tech"/>
-                            </a>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    
-                    {o.payImage && (
-                      <a href={o.payImage} target="_blank" rel="noreferrer" className="text-green-500 font-black underline flex items-center gap-1 mt-4">
-                        <ImageIcon size={12}/> View Receipt (ငွေလွှဲပြေစာ)
-                      </a>
-                    )}
-                  </div>
-                  
-                  {o.status === 'Pending' && (
-                    <div className="flex gap-2">
-                      <input type="text" placeholder="Result/Reply..." className="flex-1 bg-[#0a192f] p-3 rounded-xl text-[11px] outline-none border border-blue-900/30" value={deliveryInputs[o.id] || ''} onChange={(e) => setDeliveryInputs({...deliveryInputs, [o.id]: e.target.value})} />
-                      <button onClick={() => updateStatus(o.id, 'Completed', deliveryInputs[o.id])} className="bg-blue-600 px-4 rounded-xl font-black text-[10px]">DONE</button>
-                    </div>
-                  )}
-                </div>
-              )) : allMembers.map(m => (
-                <div key={m.uid} className="bg-[#112240] p-4 rounded-2xl flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <img src={m.photoURL || LOGO_URL} className="w-10 h-10 rounded-xl" alt="M"/>
-                    <div><p className="text-xs font-black">{m.name}</p><p className="text-[9px] text-blue-500 uppercase">{m.tier}</p></div>
-                  </div>
-                  <div className="flex gap-1">
-                    {['Standard', 'VIP', 'Reseller'].map(t => (
-                      <button key={t} onClick={() => updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'members', m.uid), {tier: t})} className={`px-2 py-1 rounded text-[8px] font-black ${m.tier === t ? 'bg-blue-600' : 'bg-slate-800 text-slate-500'}`}>{t[0]}</button>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-            <BottomNav />
-          </div>
-        )}
-
-        {view === 'profile' && (
-          <div className="p-8 flex flex-col flex-1 pb-40 text-left">
-            <MainHeader />
-            <div className="flex flex-col items-center py-12">
-              <img src={profile?.photoURL || LOGO_URL} className="w-24 h-24 rounded-[2rem] border-4 border-blue-600/20 mb-4 shadow-2xl" alt="U"/>
-              <h3 className="text-2xl font-black">{profile?.name}</h3>
-              <p className="text-blue-500 font-black uppercase tracking-widest text-[10px] mb-12">{profile?.tier} Account</p>
-              <button onClick={() => auth.signOut()} className="flex items-center gap-2 text-red-500 font-black text-sm hover:opacity-80 transition-all"><LogOut size={18}/> Sign Out</button>
-            </div>
-            <BottomNav />
-          </div>
-        )}
-
-      </div>
     </div>
   );
 }
