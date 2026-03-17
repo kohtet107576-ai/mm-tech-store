@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+Import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, setPersistence, browserLocalPersistence, signOut } from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, collection, addDoc, onSnapshot, updateDoc, query, orderBy } from 'firebase/firestore';
@@ -199,11 +199,7 @@ export default function App() {
 
   return (
     <div className="bg-[#050d1a] min-h-screen text-white font-sans selection:bg-blue-500/30">
-      
-      {/* ======================================================== */}
-      {/* 📱 MOBILE VIEW (ဖုန်းဖြင့်ဝင်သောအခါ ပေါ်မည့်အပိုင်း) 📱 */}
-      {/* ======================================================== */}
-      <div className="lg:hidden max-w-md mx-auto w-full min-h-screen flex flex-col relative bg-[#0a192f] border-x border-blue-900/10 shadow-2xl">
+      <div className="max-w-md mx-auto w-full min-h-screen flex flex-col relative bg-[#0a192f] border-x border-blue-900/10 shadow-2xl">
         
         {view === 'welcome' && (
           <div className="flex flex-col flex-1 items-center justify-center p-10 text-center">
@@ -258,7 +254,7 @@ export default function App() {
           </div>
         )}
 
-        {/* --- CHECKOUT VIEW (Updated Description Box) --- */}
+        {/* --- CHECKOUT VIEW (Updated) --- */}
         {view === 'checkout' && (
           <div className="p-4 flex flex-col flex-1 pb-40 text-left w-full overflow-y-auto no-scrollbar">
             <MainHeader />
@@ -268,27 +264,11 @@ export default function App() {
               <img src={formatImg(getPProp(selectedPlan, 'Link'))} className="w-20 h-20 mx-auto mb-4 rounded-3xl object-cover" alt="Product"/>
               <h3 className="text-xl font-black text-white uppercase">{getPProp(selectedPlan, 'Name')}</h3>
               
-              <p className="text-blue-400 text-[10px] font-bold tracking-widest uppercase mb-4">{getPProp(selectedPlan, 'Plan')}</p>
+              {/* Des column data added here */}
+              <p className="text-blue-400 text-[10px] font-bold tracking-widest uppercase mb-1">{getPProp(selectedPlan, 'Plan')}</p>
+              <p className="text-slate-400 text-[10px] mb-4 italic px-4 line-clamp-2">{getPProp(selectedPlan, 'Des')}</p>
               
-              {/* ဈေးနှုန်း */}
-              <div className="text-2xl font-black bg-[#0a192f] py-3 px-8 rounded-2xl inline-block mb-2 shadow-inner">
-                {getDisplayPrice(selectedPlan)} Ks
-              </div>
-
-              {/* ✨ Description ကို သီးသန့် Box လေးနဲ့ စာလုံးအကုန်မြင်ရအောင် ပြင်ပေးထားသော နေရာ ✨ */}
-              {getPProp(selectedPlan, 'Des') && (
-                <div className="bg-[#050d1a] border border-blue-900/50 rounded-2xl p-4 mt-4 text-left shadow-inner">
-                  <div className="flex items-center gap-2 mb-2">
-                    <CheckCircle2 size={14} className="text-blue-500" />
-                    <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Plan Details</span>
-                  </div>
-                  {/* text-[12px] နဲ့ whitespace-pre-wrap ထည့်ထားလို့ စာအကုန်အပြည့်ပေါ်ပါမယ် */}
-                  <p className="text-slate-300 text-[12px] leading-relaxed whitespace-pre-wrap">
-                    {getPProp(selectedPlan, 'Des')}
-                  </p>
-                </div>
-              )}
-
+              <div className="text-2xl font-black bg-[#0a192f] py-3 px-8 rounded-2xl inline-block">{getDisplayPrice(selectedPlan)} Ks</div>
             </div>
 
             <div className="mb-6">
@@ -296,6 +276,7 @@ export default function App() {
               <textarea rows="3" placeholder="လိုအပ်သော အချက်အလက်များ ဒီမှာ ရေးပေးပါ..." className="w-full bg-[#112240] border border-blue-900/30 p-4 rounded-2xl text-white outline-none focus:border-blue-500 text-sm" value={editContact} onChange={e => setEditContact(e.target.value)} />
             </div>
 
+            {/* Tech Images Upload */}
             <div className="mb-6">
               <label className="block text-slate-500 text-[10px] font-black uppercase mb-3 ml-2 tracking-widest">လိုအပ်သော ပုံများထည့်ရန်</label>
               <div className="grid grid-cols-3 gap-3">
@@ -314,6 +295,7 @@ export default function App() {
               </div>
             </div>
 
+            {/* Payment Grid */}
             <div className="mb-6">
               <label className="block text-slate-500 text-[10px] font-black uppercase mb-3 ml-2 tracking-widest">Payment Methode</label>
               <div className="grid grid-cols-4 gap-2">
@@ -337,6 +319,7 @@ export default function App() {
               )}
             </div>
 
+            {/* Payment Screenshot with Preview */}
             <div className="mb-8">
               <label className="block text-slate-500 text-[10px] font-black uppercase mb-3 ml-2 tracking-widest">Payment Screenshot</label>
               <div className="relative w-full aspect-video bg-[#112240] border-2 border-dashed border-blue-900/30 rounded-2xl overflow-hidden flex items-center justify-center">
@@ -390,6 +373,7 @@ export default function App() {
           </div>
         )}
 
+        {/* --- ADMIN PANEL (Displaying ALL images) --- */}
         {view === 'admin_dash' && profile?.role === 'admin' && (
           <div className="p-8 flex flex-col flex-1 pb-40 text-left">
             <MainHeader />
@@ -416,6 +400,7 @@ export default function App() {
                     <p className="mb-2 font-bold text-blue-400 underline">Details:</p>
                     <p className="whitespace-pre-wrap">{o.contact}</p>
                     
+                    {/* Display Tech Images in Admin View */}
                     {o.techImages && o.techImages.length > 0 && (
                       <div className="mt-4">
                         <p className="mb-2 font-bold text-green-400">Attached Images:</p>
@@ -475,28 +460,6 @@ export default function App() {
         )}
 
       </div>
-
-      {/* ========================================================== */}
-      {/* 💻 DESKTOP VIEW (ကွန်ပျူတာဖြင့်ဝင်သောအခါ ပေါ်မည့်အပိုင်း) 💻 */}
-      {/* ========================================================== */}
-      <div className="hidden lg:flex w-full min-h-screen bg-[#0a192f] p-8 flex-col items-center justify-center">
-        <div className="w-full max-w-5xl bg-[#112240] rounded-[2.5rem] border border-blue-900/30 p-12 text-center shadow-2xl">
-          
-          <div className="w-24 h-24 rounded-2xl border border-blue-500/30 mx-auto mb-6 flex items-center justify-center overflow-hidden bg-[#0a192f]">
-            <img src={formatImg(LOGO_URL)} className="w-full h-full object-contain" alt="Logo" />
-          </div>
-          
-          <h1 className="text-4xl font-black mb-4 uppercase tracking-tighter text-white">MM Tech Dashboard</h1>
-          <p className="text-slate-400 mb-10">ကွန်ပျူတာဖြင့် ဝင်ရောက်နေပါသည်။</p>
-          
-          <div className="bg-blue-900/20 border border-blue-500/30 rounded-2xl p-6 inline-block">
-            <p className="text-blue-300 font-bold mb-2">Desktop View အတွက် UI ကို ဤနေရာတွင် ဆက်လက်ရေးသားနိုင်ပါသည်။</p>
-            <p className="text-sm text-slate-400">Mobile UI ဖက်တွင် Error ကင်းသွားအောင် ဤ Desktop UI Container ကို သီးသန့်ခွဲထုတ်ပေးထားခြင်းဖြစ်ပါသည်။</p>
-          </div>
-
-        </div>
-      </div>
-
     </div>
   );
 }
