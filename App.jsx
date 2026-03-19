@@ -39,23 +39,7 @@ const formatImg = (url) => {
 };
 
 export default function App() {
-  const [view, setView] = useState('initializing');
-  const [user, setUser] = useState(null);
-  const [profile, setProfile] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [products, setProducts] = useState([]);
-  const [myOrders, setMyOrders] = useState([]);
-  const [allOrders, setAllOrders] = useState([]); 
-  const [allMembers, setAllMembers] = useState([]); 
-  const [selectedCat, setSelectedCat] = useState(null);
-  const [selectedGroup, setSelectedGroup] = useState(null);
-  const [selectedPlan, setSelectedPlan] = useState(null);
-  const [editContact, setEditContact] = useState('');
-  const [adminTab, setAdminTab] = useState('orders');
-  const [deliveryInputs, setDeliveryInputs] = useState({});
-  const [selectedPayment, setSelectedPayment] = useState(null);
-  const [techImages, setTechImages] = useState([null, null, null]);
-  const [payImg, setPayImg] = useState("");
+  // --- (၁) States များ (တစ်ခါပဲ ကြေညာရပါမယ်) ---
   const [view, setView] = useState('initializing');
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
@@ -74,6 +58,31 @@ export default function App() {
   const [techImages, setTechImages] = useState([null, null, null]);
   const [payImg, setPayImg] = useState("");
 
+  // --- (၂) Rose AI Chat Widget (n8n ချိတ်ဆက်မှု) ---
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = 'https://mmtechmdy.app.n8n.cloud/assets/chat.js'; 
+    script.onload = () => {
+      if (window.createChat) {
+        window.createChat({
+          webhookUrl: 'https://mmtechmdy.app.n8n.cloud/webhook/2f2ed367-cb30-411b-9cd6-1deac27cefdb/webhook',
+          title: 'MM Tech Support (Rose)',
+          welcomeMessage: 'မင်္ဂလာပါရှင်၊ MM Tech မှ Rose ပါ။ ဘာကူညီပေးရမလဲရှင့်?',
+          avatarUrl: 'https://drive.google.com/thumbnail?id=1Lh-nHgyLMSr3rBVe4OGnjEvEspuMokd6&sz=500',
+          backgroundColor: '#0a192f',
+          onboarding: true,
+        });
+      }
+    };
+    document.body.appendChild(script);
+    return () => {
+      if (document.body.contains(script)) {
+        document.body.removeChild(script);
+      }
+    };
+  }, []);
+
+  // --- (၃) Logic & Memo အပိုင်းများ ---
   const dynamicCategories = useMemo(() => {
     const uniqueCats = [...new Set(products.map(p => getPProp(p, 'Category')).filter(Boolean))];
     return uniqueCats.map(cat => ({ id: cat, name: cat, icon: <Layers size={16}/> }));
@@ -95,57 +104,6 @@ export default function App() {
       setProfile(pData);
     } catch (e) { console.error("Sync Error:", e); }
   }, []);
-
-  const dynamicCategories = useMemo(() => {
-    const uniqueCats = [...new Set(products.map(p => getPProp(p, 'Category')).filter(Boolean))];
-    return uniqueCats.map(cat => ({ id: cat, name: cat, icon: <Layers size={16}/> }));
-  }, [products]);
-
-  const syncProfile = useCallback(async (u) => {
-    const docRef = doc(db, 'artifacts', appId, 'users', u.uid, 'profile', 'data');
-    const memberRef = doc(db, 'artifacts', appId, 'public', 'data', 'members', u.uid);
-    try {
-      const docSnap = await getDoc(docRef);
-      let pData = docSnap.exists() ? docSnap.data() : {
-        name: u.displayName || "User", email: u.email, 
-        tier: ADMIN_EMAILS.includes(u.email) ? 'Admin' : 'Standard',
-        role: ADMIN_EMAILS.includes(u.email) ? 'admin' : 'user', 
-        uid: u.uid, photoURL: u.photoURL, createdAt: new Date().toISOString()
-      };
-      await setDoc(docRef, pData, { merge: true });
-      await setDoc(memberRef, pData, { merge: true });
-      setProfile(pData);
-    } catch (e) { console.error("Sync Error:", e); }
-  }, []);
-
-  useEffect(() => {
-    setPersistence(auth, browserLocalPersistence);
-    const unsubscribe = onAuthStateChanged(auth, async (currUser) => {
-      if (currUser) { setUser(currUser); await syncProfile(currUser); setView('home'); } 
-      else { setUser(null); setProfile(null); setView('welcome'); }
-    });
-    return () => unsubscribe();
-  }, [syncProfile]);
-
-  useEffect(() => {
-    fetch(SCRIPT_URL).then(res => res.json()).then(data => { if (Array.isArray(data)) setProducts(data); });
-  }, []);
-
-  useEffect(() => {
-    if (!user) return;
-    const qOrders = query(collection(db, 'artifacts', appId, 'public', 'data', 'orders'), orderBy('timestamp', 'desc'));
-    const unsubOrders = onSnapshot(qOrders, (sn) => {
-      const docs = sn.docs.map(d => ({ id: d.id, ...d.data() }));
-      setAllOrders(docs); setMyOrders(docs.filter(o => o.userId === user.uid));
-    });
-    let unsubMembers = () => {};
-    if (profile?.role === 'admin') {
-      unsubMembers = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'members'), (sn) => {
-        setAllMembers(sn.docs.map(d => ({ id: d.id, ...d.data() })));
-      });
-    }
-    return () => { unsubOrders(); unsubMembers(); };
-  }, [user, profile]);
 
   const handleLogin = async () => { try { await signInWithPopup(auth, googleProvider); } catch (e) { console.error(e); } };
 
