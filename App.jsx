@@ -56,7 +56,6 @@ export default function App() {
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [techImages, setTechImages] = useState([null, null, null]);
   const [payImg, setPayImg] = useState("");
-  export default function App() {
   const [view, setView] = useState('initializing');
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
