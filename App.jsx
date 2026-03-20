@@ -64,7 +64,7 @@ export default function App() {
     script.onload = () => {
       if (window.createChat) {
         window.createChat({
-          webhookUrl: 'https://mmtechmdy.app.n8n.cloud/webhook/2f2ed367-cb30-411b-9cd6-1deac27cefdb/webhook',
+          webhookUrl: 'https://mmtechmdy.app.n8n.cloud/webhook/0855a5bd-760c-40cf-a84e-9700769434ec/chat',
           title: 'MM Tech Support (Rose)',
           welcomeMessage: 'မင်္ဂလာပါရှင်၊ MM Tech မှ Rose ပါ။ ဘာကူညီပေးရမလဲရှင့်?',
           avatarUrl: LOGO_URL,
