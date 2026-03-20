@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, setPersistence, browserLocalPersistence, signOut } from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, collection, addDoc, onSnapshot, updateDoc, query, orderBy } from 'firebase/firestore';
-import { ShoppingBag, Gamepad2, Smartphone, ChevronRight, ArrowLeft, CheckCircle2, Loader2, User, ShieldCheck, LogOut, Send, Save, Layers, Image as ImageIcon, History, Plus, X } from 'lucide-react';
+import { ShoppingBag, Gamepad2, Smartphone, ChevronRight, ArrowLeft, CheckCircle2, Loader2, User, ShieldCheck, LogOut, Send, Save, Layers, Image as ImageIcon, History, Plus, X, Search, Facebook, MessageSquare, Globe, Youtube, Video } from 'lucide-react';
 
 // --- (၁) CONFIGURATION ---
 const LOGO_URL = "https://drive.google.com/thumbnail?id=1Lh-nHgyLMSr3rBVe4OGnjEvEspuMokd6&sz=w1000"; 
@@ -56,11 +56,13 @@ export default function App() {
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [techImages, setTechImages] = useState([null, null, null]);
   const [payImg, setPayImg] = useState("");
+  const [searchTerm, setSearchTerm] = useState(''); // Search State
 
-  // --- (၃) Rose AI Chat Agent ---
+  // --- (၃) Rose AI Chat Agent Fix ---
   useEffect(() => {
     const script = document.createElement('script');
     script.src = 'https://mmtechmdy.app.n8n.cloud/assets/chat.js'; 
+    script.async = true;
     script.onload = () => {
       if (window.createChat) {
         window.createChat({
@@ -70,8 +72,7 @@ export default function App() {
           avatarUrl: LOGO_URL,
           backgroundColor: '#0a192f',
           onboarding: true,
-          iFrameStyle: 'position: fixed; bottom: 20px; right: 20px; z-index: 9999; border: none;'
-        
+          iFrameStyle: 'position: fixed; bottom: 85px; right: 20px; z-index: 999; border: none; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);'
         });
       }
     };
@@ -79,7 +80,26 @@ export default function App() {
     return () => { if (document.body.contains(script)) document.body.removeChild(script); };
   }, []);
 
-  // --- (၄) Firebase & Data Logic ---
+  // --- (၄) Admin Functions (Fix) ---
+  const updateOrderStatus = async (orderId, newStatus, resultData = "") => {
+    try {
+      const orderRef = doc(db, 'artifacts', appId, 'public', 'data', 'orders', orderId);
+      await updateDoc(orderRef, { status: newStatus, result: resultData });
+      alert("Order Updated Successfully!");
+    } catch (e) { alert("Error updating order: " + e.message); }
+  };
+
+  const updateMemberTier = async (uid, newTier) => {
+    try {
+      const memberRef = doc(db, 'artifacts', appId, 'public', 'data', 'members', uid);
+      const userRef = doc(db, 'artifacts', appId, 'users', uid, 'profile', 'data');
+      await updateDoc(memberRef, { tier: newTier });
+      await updateDoc(userRef, { tier: newTier });
+      alert("User Tier Updated!");
+    } catch (e) { alert("Error updating user: " + e.message); }
+  };
+
+  // --- (၅) Firebase & Data Logic ---
   const syncProfile = useCallback(async (u) => {
     const docRef = doc(db, 'artifacts', appId, 'users', u.uid, 'profile', 'data');
     const memberRef = doc(db, 'artifacts', appId, 'public', 'data', 'members', u.uid);
@@ -91,6 +111,7 @@ export default function App() {
         role: ADMIN_EMAILS.includes(u.email) ? 'admin' : 'user', 
         uid: u.uid, photoURL: u.photoURL, createdAt: new Date().toISOString()
       };
+      if (ADMIN_EMAILS.includes(u.email)) pData.role = 'admin';
       await setDoc(docRef, pData, { merge: true });
       await setDoc(memberRef, pData, { merge: true });
       setProfile(pData);
@@ -175,43 +196,52 @@ export default function App() {
     const groups = {};
     products.forEach(p => {
       const name = getPProp(p, 'Name');
-      if (name) {
+      if (name && (name.toLowerCase().includes(searchTerm.toLowerCase()))) {
         if (!groups[name]) groups[name] = { name, category: getPProp(p, 'Category'), image: getPProp(p, 'Link'), plans: [] };
         groups[name].plans.push(p);
       }
     });
     return Object.values(groups);
-  }, [products]);
+  }, [products, searchTerm]);
 
-  // --- (၅) UI COMPONENTS ---
+  // --- (၆) UI COMPONENTS ---
   const MainHeader = () => (
     <div className="flex items-center justify-between p-4 bg-[#0a192f]/80 backdrop-blur-md border-b border-blue-900/20 sticky top-0 z-40">
       <div className="flex items-center gap-2">
         <img src={LOGO_URL} className="w-8 h-8 rounded-lg" alt="L" />
         <h2 className="text-md font-black text-white uppercase tracking-tighter">MM Tech</h2>
       </div>
-      <ShoppingBag size={20} className="text-blue-500 cursor-pointer" onClick={() => setView('customer_dash')} />
+      <div className="flex gap-4">
+        <History size={20} className="text-slate-400 cursor-pointer hover:text-blue-500" onClick={() => setView('customer_dash')} />
+        <User size={20} className="text-slate-400 cursor-pointer hover:text-blue-500" onClick={() => setView('profile')} />
+      </div>
+    </div>
+  );
+
+  const SocialLinks = () => (
+    <div className="flex justify-center gap-5 my-6 p-4 bg-[#112240]/50 rounded-3xl border border-blue-900/20 mx-6">
+      <a href="https://facebook.com" target="_blank" rel="noreferrer" className="text-blue-500 hover:scale-110 transition-transform"><Facebook size={24}/></a>
+      <a href="https://t.me/mmtech" target="_blank" rel="noreferrer" className="text-blue-400 hover:scale-110 transition-transform"><Send size={24}/></a>
+      <a href="https://wa.me/yourphone" target="_blank" rel="noreferrer" className="text-green-500 hover:scale-110 transition-transform"><MessageSquare size={24}/></a>
+      <a href="https://youtube.com" target="_blank" rel="noreferrer" className="text-red-500 hover:scale-110 transition-transform"><Youtube size={24}/></a>
+      <a href="https://tiktok.com" target="_blank" rel="noreferrer" className="text-white hover:scale-110 transition-transform"><Video size={24}/></a>
     </div>
   );
 
   const BottomNav = () => (
-    <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md md:max-w-5xl lg:max-w-screen-2xl bg-[#0a192f]/90 border-t border-blue-900/10 p-4 flex justify-around items-center z-50 rounded-t-3xl backdrop-blur-xl shadow-2xl">
-      <button onClick={() => setView('home')} className={view === 'home' ? 'text-blue-500' : 'text-slate-500'}><ShoppingBag size={24}/></button>
-      <button onClick={() => setView('customer_dash')} className={view === 'customer_dash' ? 'text-blue-500' : 'text-slate-500'}><History size={24}/></button>
-      {profile?.role === 'admin' && <button onClick={() => setView('admin_dash')} className={view === 'admin_dash' ? 'text-blue-500' : 'text-slate-500'}><ShieldCheck size={24}/></button>}
-      <button onClick={() => setView('profile')} className={view === 'profile' ? 'text-blue-500' : 'text-slate-500'}><User size={24}/></button>
+    <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md md:max-w-5xl bg-[#0a192f]/95 border-t border-blue-900/10 p-5 flex justify-around items-center z-50 rounded-t-[2.5rem] shadow-2xl backdrop-blur-md">
+      <button onClick={() => setView('home')} className={view === 'home' ? 'text-blue-500 scale-110' : 'text-slate-500'}><ShoppingBag size={24}/></button>
+      <button onClick={() => setView('customer_dash')} className={view === 'customer_dash' ? 'text-blue-500 scale-110' : 'text-slate-500'}><History size={24}/></button>
+      {profile?.role === 'admin' && <button onClick={() => setView('admin_dash')} className={view === 'admin_dash' ? 'text-blue-500 scale-110' : 'text-slate-500'}><ShieldCheck size={24}/></button>}
+      <button onClick={() => setView('profile')} className={view === 'profile' ? 'text-blue-500 scale-110' : 'text-slate-500'}><User size={24}/></button>
     </nav>
   );
 
   if (view === 'initializing') return <div className="min-h-screen bg-[#050d1a] flex items-center justify-center text-white"><Loader2 className="animate-spin text-blue-500" size={40}/></div>;
 
   return (
-    <div className="bg-[#050d1a] min-h-screen text-white font-sans flex items-center justify-center p-0">
-      
-      {/* ======================================================== */}
-      {/* 📱💻 RESPONSIVE WRAPPER (Mobile: max-w-md, Desktop: max-w-5xl) */}
-      {/* ======================================================== */}
-      <div className="w-full max-w-md md:max-w-5xl lg:max-w-screen-2xl mx-auto min-h-screen flex flex-col relative bg-[#0a192f] border-x border-blue-900/10 shadow-2xl">
+    <div className="bg-[#050d1a] min-h-screen text-white font-sans flex items-center justify-center">
+      <div className="w-full max-w-md md:max-w-5xl lg:max-w-screen-2xl mx-auto min-h-screen flex flex-col relative bg-[#0a192f] border-x border-blue-900/10 shadow-2xl overflow-x-hidden">
         
         {view === 'welcome' && (
           <div className="flex flex-col flex-1 items-center justify-center p-10 text-center animate-in fade-in duration-700">
@@ -225,15 +255,30 @@ export default function App() {
           <>
             <MainHeader />
             <div className="p-6 pb-40 text-left">
-              <h1 className="text-3xl font-black mb-6">Store</h1>
+              <h1 className="text-3xl font-black mb-4">Store</h1>
+              
+              {/* Search Bar Implementation */}
+              <div className="relative mb-6">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+                <input 
+                  type="text" 
+                  placeholder="Search products..." 
+                  className="w-full bg-[#112240] border border-blue-900/20 py-4 pl-12 pr-4 rounded-2xl text-sm outline-none focus:border-blue-500 transition-all shadow-inner"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+
+              {/* Social Links Bar */}
+              <SocialLinks />
+
               <div className="flex gap-2 overflow-x-auto no-scrollbar pb-6">
-                <button onClick={() => setSelectedCat(null)} className={`px-5 py-2 rounded-full text-[11px] font-black border ${!selectedCat ? 'bg-blue-600 border-blue-500 shadow-lg shadow-blue-500/20' : 'bg-[#112240] border-blue-900/30'}`}>All</button>
+                <button onClick={() => setSelectedCat(null)} className={`px-5 py-2 rounded-full text-[11px] font-black border ${!selectedCat ? 'bg-blue-600 border-blue-500 shadow-lg' : 'bg-[#112240] border-blue-900/30'}`}>All</button>
                 {dynamicCategories.map(c => (
-                  <button key={c.id} onClick={() => setSelectedCat(c.id)} className={`px-5 py-2 rounded-full text-[11px] font-black border whitespace-nowrap ${selectedCat === c.id ? 'bg-blue-600 border-blue-400' : 'bg-[#112240] border-blue-900/30'}`}>{c.name}</button>
+                  <button key={c.id} onClick={() => setSelectedCat(c.id)} className={`px-5 py-2 rounded-full text-[11px] font-black border whitespace-nowrap ${selectedCat === c.id ? 'bg-blue-600 border-blue-400 shadow-lg' : 'bg-[#112240] border-blue-900/30'}`}>{c.name}</button>
                 ))}
               </div>
               
-              {/* Responsive Grid: ဖုန်းမှာ ၂ လုံး၊ PC မှာ ၄ လုံး သို့မဟုတ် ၆ လုံး */}
               <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 md:gap-6">
                 {groupedProducts.filter(g => !selectedCat || g.category === selectedCat).map(group => (
                   <div key={group.name} onClick={() => { setSelectedGroup(group); setView('group_details'); }} className="bg-[#112240]/40 p-3 rounded-2xl border border-blue-900/10 active:scale-95 transition-all cursor-pointer hover:border-blue-500/30 group">
@@ -250,7 +295,7 @@ export default function App() {
         {view === 'group_details' && (
           <div className="flex-1 max-w-4xl mx-auto w-full p-6 pb-40">
             <MainHeader />
-            <button onClick={() => setView('home')} className="p-2 bg-[#112240] rounded-xl mb-6 border border-blue-900/20"><ArrowLeft size={20}/></button>
+            <button onClick={() => setView('home')} className="p-2 bg-[#112240] rounded-xl my-6 border border-blue-900/20"><ArrowLeft size={20}/></button>
             <h2 className="text-2xl font-black mb-8 uppercase tracking-tight">{selectedGroup?.name}</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {selectedGroup?.plans.map((p, i) => (
@@ -273,17 +318,22 @@ export default function App() {
               <img src={formatImg(getPProp(selectedPlan, 'Link'))} className="w-20 h-20 mx-auto mb-4 rounded-3xl" alt="P"/>
               <h3 className="text-xl font-black mb-2 uppercase">{getPProp(selectedPlan, 'Name')}</h3>
               <p className="text-blue-500 text-3xl font-black">{getDisplayPrice(selectedPlan)} Ks</p>
-              {getPProp(selectedPlan, 'Des') && <div className="mt-6 p-4 bg-black/20 rounded-2xl text-[12px] text-slate-300 text-left whitespace-pre-wrap leading-relaxed">{getPProp(selectedPlan, 'Des')}</div>}
+              {getPProp(selectedPlan, 'Des') && <div className="mt-6 p-4 bg-black/20 rounded-2xl text-[12px] text-slate-300 text-left whitespace-pre-wrap leading-relaxed border border-blue-900/10">{getPProp(selectedPlan, 'Des')}</div>}
             </div>
 
-            <textarea rows="4" placeholder="ID, Password, Phone Number အကုန်ဒီမှာရေးပါ..." className="w-full bg-[#112240] p-5 rounded-2xl mb-8 text-sm outline-none border border-blue-900/20 focus:border-blue-500 transition-all" value={editContact} onChange={e => setEditContact(e.target.value)} />
+            <textarea rows="4" placeholder="ID, Password, Phone Number အကုန်ဒီမှာရေးပါ..." className="w-full bg-[#112240] p-5 rounded-2xl mb-8 text-sm outline-none border border-blue-900/20 focus:border-blue-500 transition-all shadow-inner" value={editContact} onChange={e => setEditContact(e.target.value)} />
 
             <div className="mb-8">
               <p className="text-[11px] font-black text-slate-500 uppercase mb-4 ml-2 tracking-widest">လိုအပ်သော ပုံများတင်ရန် (Optional)</p>
               <div className="grid grid-cols-3 gap-3">
                 {techImages.map((img, idx) => (
                   <div key={idx} className="aspect-square bg-[#112240] rounded-2xl border-2 border-dashed border-blue-900/30 overflow-hidden flex items-center justify-center relative">
-                    {img ? <img src={img} className="w-full h-full object-cover" alt="T"/> : (
+                    {img ? (
+                      <div className="relative w-full h-full">
+                        <img src={img} className="w-full h-full object-cover" alt="T"/>
+                        <button onClick={() => {const up=[...techImages]; up[idx]=null; setTechImages(up);}} className="absolute top-1 right-1 bg-red-500 p-1 rounded-full"><X size={10}/></button>
+                      </div>
+                    ) : (
                       <label className="cursor-pointer w-full h-full flex items-center justify-center hover:bg-blue-500/5 transition-colors"><Plus className="text-blue-500" size={24}/><input type="file" className="hidden" onChange={e => handleImageUpload(e.target.files[0], idx, 'tech')}/></label>
                     )}
                   </div>
@@ -309,15 +359,14 @@ export default function App() {
           </div>
         )}
 
-        {/* --- Admin Dashboard with User Tiers --- */}
         {view === 'admin_dash' && (
           <div className="flex-1 max-w-5xl mx-auto w-full p-8 pb-40">
             <MainHeader />
             <div className="flex justify-between items-center my-8">
               <h2 className="text-2xl font-black uppercase tracking-tighter">Management</h2>
               <div className="flex bg-[#112240] p-1 rounded-2xl border border-blue-900/20">
-                <button onClick={() => setAdminTab('orders')} className={`px-5 py-2 rounded-xl text-[10px] font-black transition-all ${adminTab === 'orders' ? 'bg-blue-600 shadow-lg shadow-blue-500/30' : 'text-slate-500'}`}>ORDERS</button>
-                <button onClick={() => setAdminTab('members')} className={`px-5 py-2 rounded-xl text-[10px] font-black transition-all ${adminTab === 'members' ? 'bg-blue-600 shadow-lg shadow-blue-500/30' : 'text-slate-500'}`}>USERS</button>
+                <button onClick={() => setAdminTab('orders')} className={`px-5 py-2 rounded-xl text-[10px] font-black transition-all ${adminTab === 'orders' ? 'bg-blue-600 shadow-lg' : 'text-slate-500'}`}>ORDERS</button>
+                <button onClick={() => setAdminTab('members')} className={`px-5 py-2 rounded-xl text-[10px] font-black transition-all ${adminTab === 'members' ? 'bg-blue-600 shadow-lg' : 'text-slate-500'}`}>USERS</button>
               </div>
             </div>
             
@@ -330,7 +379,7 @@ export default function App() {
                   </div>
                   <div className="bg-black/20 p-4 rounded-2xl text-[12px] text-slate-300 mb-4 whitespace-pre-wrap border border-blue-900/10">{o.contact}</div>
                   <div className="flex gap-2 mb-4">
-                    {o.payImage && <a href={o.payImage} target="_blank" rel="noreferrer" className="flex-1 bg-green-600/10 p-2 rounded-xl text-center text-[9px] font-black text-green-500 border border-green-500/20 uppercase tracking-widest">Receipt</a>}
+                    {o.payImage && <a href={o.payImage} target="_blank" rel="noreferrer" className="flex-1 bg-green-600/10 p-2 rounded-xl text-center text-[9px] font-black text-green-500 border border-green-500/20">Receipt</a>}
                     {o.techImages?.map((img, i) => <a key={i} href={img} target="_blank" rel="noreferrer" className="w-10 h-10 bg-blue-600/10 rounded-xl border border-blue-500/20 overflow-hidden shrink-0"><img src={img} className="w-full h-full object-cover" alt="T"/></a>)}
                   </div>
                   {o.status === 'Pending' && (
@@ -343,14 +392,14 @@ export default function App() {
               )) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {allMembers.map(m => (
-                    <div key={m.uid} className="bg-[#112240] p-4 rounded-3xl flex items-center justify-between border border-blue-900/10">
+                    <div key={m.uid} className="bg-[#112240] p-4 rounded-3xl flex items-center justify-between border border-blue-900/10 shadow-lg">
                       <div className="flex items-center gap-3">
-                        <img src={m.photoURL || LOGO_URL} className="w-10 h-10 rounded-xl object-cover shadow-lg" alt="M"/>
-                        <div><p className="text-[11px] font-black text-white">{m.name}</p><p className="text-[9px] text-blue-500 uppercase font-bold tracking-tighter">{m.tier}</p></div>
+                        <img src={m.photoURL || LOGO_URL} className="w-10 h-10 rounded-xl object-cover" alt="M"/>
+                        <div><p className="text-[11px] font-black text-white">{m.name}</p><p className="text-[9px] text-blue-500 uppercase font-bold">{m.tier}</p></div>
                       </div>
                       <div className="flex gap-1 bg-[#0a192f] p-1 rounded-xl">
                         {['Standard', 'VIP', 'Reseller'].map(t => (
-                          <button key={t} onClick={() => updateMemberTier(m.uid, t)} className={`px-2 py-1 rounded-lg text-[8px] font-black uppercase transition-all ${m.tier === t ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500'}`}>{t[0]}</button>
+                          <button key={t} onClick={() => updateMemberTier(m.uid, t)} className={`px-2 py-1 rounded-lg text-[8px] font-black uppercase transition-all ${m.tier === t ? 'bg-blue-600 text-white' : 'text-slate-500'}`}>{t[0]}</button>
                         ))}
                       </div>
                     </div>
@@ -362,17 +411,16 @@ export default function App() {
           </div>
         )}
 
-        {/* ... Profile, Success views ... */}
         {view === 'customer_dash' && (
           <div className="flex-1 max-w-4xl mx-auto w-full p-8 pb-40">
             <MainHeader />
-            <h2 className="text-3xl font-black my-8 tracking-tight uppercase tracking-tighter">History</h2>
+            <h2 className="text-3xl font-black my-8 tracking-tight uppercase">History</h2>
             <div className="space-y-4 overflow-y-auto no-scrollbar">
               {myOrders.length === 0 ? <p className="text-slate-600 text-center py-20 text-xs italic uppercase tracking-widest">No orders yet</p> : myOrders.map(o => (
                 <div key={o.id} className="bg-[#112240] p-6 rounded-[2.5rem] border border-blue-900/30 shadow-xl">
                   <div className="flex justify-between items-start mb-2">
-                    <div><h4 className="font-black text-[13px] uppercase text-white tracking-tight">{o.product}</h4><p className="text-blue-500 text-[10px] font-black uppercase tracking-widest">{o.plan} • {o.price} Ks</p></div>
-                    <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${o.status === 'Completed' ? 'bg-green-500/10 text-green-500' : 'bg-yellow-500/10 text-yellow-500'}`}>{o.status}</span>
+                    <div><h4 className="font-black text-[13px] uppercase text-white">{o.product}</h4><p className="text-blue-500 text-[10px] font-black uppercase tracking-widest">{o.plan} • {o.price} Ks</p></div>
+                    <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase ${o.status === 'Completed' ? 'bg-green-500/10 text-green-500' : 'bg-yellow-500/10 text-yellow-500'}`}>{o.status}</span>
                   </div>
                   {o.result && (
                     <div className="mt-4 p-4 bg-green-500/5 border border-green-500/10 rounded-2xl flex items-center justify-between gap-3 shadow-inner">
@@ -380,7 +428,7 @@ export default function App() {
                       <button onClick={() => {navigator.clipboard.writeText(o.result); alert("Copied!");}} className="bg-green-600 p-2 rounded-lg text-white shadow-xl active:scale-90 transition-all"><Save size={14}/></button>
                     </div>
                   )}
-                  <p className="text-[9px] text-slate-600 italic mt-4 uppercase tracking-tighter">{o.date}</p>
+                  <p className="text-[9px] text-slate-600 italic mt-4 uppercase">{o.date}</p>
                 </div>
               ))}
             </div>
@@ -393,15 +441,15 @@ export default function App() {
             <MainHeader />
             <img src={profile?.photoURL || LOGO_URL} className="w-24 h-24 rounded-[2.5rem] border-4 border-blue-600/20 mb-6 shadow-2xl" alt="U"/>
             <h3 className="text-3xl font-black tracking-tighter uppercase">{profile?.name}</h3>
-            <p className="text-blue-500 font-black uppercase tracking-widest text-[11px] mb-12 shadow-blue-500/10">{profile?.tier} Account</p>
-            <button onClick={() => auth.signOut()} className="flex items-center gap-2 text-red-500 font-black text-sm active:scale-95 transition-all hover:opacity-80"><LogOut size={20}/> Sign Out</button>
+            <p className="text-blue-500 font-black uppercase tracking-widest text-[11px] mb-12">{profile?.tier} Account</p>
+            <button onClick={() => auth.signOut()} className="flex items-center gap-2 text-red-500 font-black text-sm active:scale-95 transition-all hover:opacity-80"><LogOut size={20}/> Sign Out Account</button>
             <BottomNav />
           </div>
         )}
 
         {view === 'order_success' && (
           <div className="flex-1 flex flex-col items-center justify-center p-12 text-center animate-in zoom-in duration-500">
-            <CheckCircle2 size={100} className="text-green-500 mb-8 drop-shadow-[0_0_20px_rgba(34,197,94,0.3)]" />
+            <CheckCircle2 size={100} className="text-green-500 mb-8" />
             <h2 className="text-4xl font-black mb-4 uppercase tracking-tighter">Ordered!</h2>
             <p className="text-slate-400 text-sm mb-12 uppercase tracking-widest font-bold">Thank you for choosing MM Tech</p>
             <button onClick={() => setView('customer_dash')} className="w-full max-w-xs bg-blue-600 py-5 rounded-3xl font-black text-white shadow-2xl active:scale-95 transition-all uppercase tracking-widest">Go to History</button>
