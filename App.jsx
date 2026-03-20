@@ -6,7 +6,7 @@ import { ShoppingBag, Gamepad2, Smartphone, ChevronRight, ArrowLeft, CheckCircle
 
 // --- (၁) CONFIGURATION ---
 const LOGO_URL = "https://drive.google.com/thumbnail?id=1Lh-nHgyLMSr3rBVe4OGnjEvEspuMokd6&sz=w1000"; 
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwIfd4385XalEWYIJPXSC46nS4s9LgdUQ4QAMVLaUIIzXCnCxS4frRcx7SxyhyQYJiZ/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw9-jvz928_Hd46Wo3Gs3JZnoywR79wEq0ax-qS_zOB-7tIsekn-tJO0zPgFMv_ruGx/exec";
 const IMGBB_API_KEY = "88d3b49cfcf4fa4b1e77ce493aa3172a";
 const ADMIN_EMAILS = ["kohtet107576@gmail.com"]; 
 const TELEGRAM_BOT_TOKEN = "8666075565:AAFFgji8bX9jxcx90GMMqYq-JwKH-PTU2vk";
