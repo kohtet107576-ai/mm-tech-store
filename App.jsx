@@ -28,7 +28,7 @@ const appId = "mm-tech-store";
 // Google Script ကို လှမ်းချိတ်မယ့် Noti Function အသစ်
 const sendTelegramNoti = async (orderData) => {
   // အစ်ကို့ရဲ့ ကိုယ်ပိုင် Google Apps Script URL ပါ
-  const scriptURL = "https://script.google.com/macros/s/AKfycbxBdxUfSw-QRyTo4owgX7bUxHrJq7E0lyA4yzmBWXw-A4XLAPY7loiIvjKuwKrZqfaP/exec"; 
+  const scriptURL = "https://script.google.com/macros/s/AKfycbziR6po4oikdxYOZZh4_5EVFW1pqG0I1FBTxo-9uXIHfa0PRwTDrpIqjePwZDDaZ9Iv/exec"; 
   
   try {
     const response = await fetch(scriptURL, {
