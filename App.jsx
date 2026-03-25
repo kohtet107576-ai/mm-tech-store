@@ -24,6 +24,29 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const googleProvider = new GoogleAuthProvider();
 const appId = "mm-tech-store";
+// Google Script ကို လှမ်းချိတ်မယ့် Noti Function အသစ်
+const sendTelegramNoti = async (orderData) => {
+  // အစ်ကို့ရဲ့ ကိုယ်ပိုင် Google Apps Script URL ပါ
+  const scriptURL = "https://script.google.com/macros/s/AKfycbz4ZZXriHvzCntGh-V8QPEa74gYeAgP6Hks10GWAsqUx2mtqzxUV7GQYSwhMuErVaLW/exec"; 
+  
+  try {
+    const response = await fetch(scriptURL, {
+      method: 'POST',
+      // CORS Error လုံးဝ မတက်အောင် text/plain နဲ့ ပြောင်းပို့ထားပါတယ်
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' }, 
+      body: JSON.stringify(orderData)
+    });
+    
+    const result = await response.json();
+    if(result.status === "success") {
+      console.log("Telegram သို့ Noti ပို့ခြင်း အောင်မြင်ပါသည်");
+    } else {
+      console.error("Script Error:", result.message);
+    }
+  } catch (e) { 
+    console.error("Network Error:", e);
+  }
+};
 
 // --- (၂) UTILS & TELEGRAM SENDER ---
 const getPProp = (p, k) => p?.[k] || p?.[k.toLowerCase()] || p?.[k.toUpperCase()] || "";
