@@ -24,6 +24,7 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const googleProvider = new GoogleAuthProvider();
 const appId = "mm-tech-store";
+
 // Google Script ကို လှမ်းချိတ်မယ့် Noti Function အသစ်
 const sendTelegramNoti = async (orderData) => {
   // အစ်ကို့ရဲ့ ကိုယ်ပိုင် Google Apps Script URL ပါ
@@ -48,7 +49,7 @@ const sendTelegramNoti = async (orderData) => {
   }
 };
 
-// --- (၂) UTILS & TELEGRAM SENDER ---
+// --- (၂) UTILS ---
 const getPProp = (p, k) => p?.[k] || p?.[k.toLowerCase()] || p?.[k.toUpperCase()] || "";
 const formatImg = (url) => {
   if (!url || typeof url !== 'string') return LOGO_URL;
@@ -57,36 +58,6 @@ const formatImg = (url) => {
     return idMatch ? `https://drive.google.com/thumbnail?id=${idMatch[0]}&sz=w1000` : LOGO_URL;
   }
   return url;
-};
-
-// ပြတ်သွားသော Telegram Noti Function ကို ပြန်လည်ဖြည့်စွက်ထားပါသည်
-// အရင် sendTelegramNoti နေရာမှာ ဒါလေး အစားထိုးပေးပါဗျ
-const sendTelegramNoti = async (orderData) => {
-  const text = `🛍 New Order Received!\n\n` +
-               `👤 Customer: ${orderData.userName}\n` +
-               `📦 Products: ${orderData.product}\n` +
-               `🏷 Plans: ${orderData.plan}\n` +
-               `💰 Total: ${orderData.price} Ks\n` +
-               `💳 Payment: ${orderData.paymentMethod}\n` +
-               `📞 Contact/ID:\n${orderData.contact}\n\n` +
-               `⏱ Date: ${orderData.date}`;
-
-  const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
-  try {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: text }) // parse_mode ဖြုတ်ထားပါတယ်
-    });
-    const data = await response.json();
-    
-    // Telegram က လက်မခံရင် ဘာကြောင့်လဲဆိုတာ အတိအကျ ပြပေးပါမယ်
-    if (!data.ok) {
-      alert("Telegram Error: " + data.description);
-    }
-  } catch (e) { 
-    console.error("Network Error:", e);
-  }
 };
 
 export default function App() {
@@ -225,7 +196,7 @@ export default function App() {
       // Send to Google Sheet
       fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(orderData) });
       
-      // Send to Telegram Group
+      // Send to Telegram Group via Google Apps Script
       await sendTelegramNoti(orderData);
 
       setCart([]); setTechImages([null, null, null]); setPayImg(""); setEditContact(""); setView('order_success');
@@ -348,7 +319,7 @@ export default function App() {
           </div>
         )}
 
-        {/* --- PLAN DETAIL VIEW (အသစ်ထည့်ထားသော စာမျက်နှာ) --- */}
+        {/* --- PLAN DETAIL VIEW --- */}
         {view === 'plan_details' && selectedPlan && (
           <div className="flex-1 max-w-4xl mx-auto w-full p-6 pb-40 overflow-y-auto no-scrollbar">
             <MainHeader />
@@ -367,7 +338,6 @@ export default function App() {
               )}
 
               <div className="flex flex-col gap-4 mt-4">
-                {/* Buy Now Button */}
                 <button onClick={() => {
                   const alreadyInCart = cart.some(item => getPProp(item, 'Plan') === getPProp(selectedPlan, 'Plan') && getPProp(item, 'Name') === getPProp(selectedPlan, 'Name'));
                   if (!alreadyInCart) setCart([...cart, selectedPlan]);
@@ -376,7 +346,6 @@ export default function App() {
                   <ShoppingBag size={20}/> ချက်ချင်းဝယ်မည် (Buy Now)
                 </button>
 
-                {/* Add to Cart Button */}
                 <button onClick={() => {
                   setCart([...cart, selectedPlan]);
                   alert("ခြင်းတောင်းထဲသို့ ထည့်ပြီးပါပြီ!");
@@ -443,7 +412,6 @@ export default function App() {
 
             <textarea rows="4" placeholder="ID, Password, Phone Number အကုန်ဒီမှာရေးပါ..." className="w-full bg-[#112240] p-5 rounded-2xl mb-8 text-sm outline-none border border-blue-900/20 focus:border-blue-500 transition-all shadow-inner" value={editContact} onChange={e => setEditContact(e.target.value)} />
 
-            {/* Payment Methode Selection */}
             <div className="mb-8">
               <label className="block text-slate-500 text-[11px] font-black uppercase mb-3 ml-2 tracking-widest">Payment Methode</label>
               <div className="grid grid-cols-4 gap-2">
