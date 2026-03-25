@@ -10,7 +10,7 @@ const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw9-jvz928_Hd46Wo3Gs
 const IMGBB_API_KEY = "88d3b49cfcf4fa4b1e77ce493aa3172a";
 const ADMIN_EMAILS = ["kohtet107576@gmail.com"]; 
 const TELEGRAM_BOT_TOKEN = "8666075565:AAFFgji8bX9jxcx90GMMqYq-JwKH-PTU2vk";
-const TELEGRAM_CHAT_ID = "-5228370357"; // အစ်ကိုရှာတွေ့ထားတဲ့ Admin Group ID 
+const TELEGRAM_CHAT_ID = "-5228370357"; 
 
 const firebaseConfig = {
   apiKey: "AIzaSyCBWTPAr0xWwpN9ASinAQWK_incw8kD-v4",
@@ -38,7 +38,7 @@ const formatImg = (url) => {
   return url;
 };
 
-// Telegram ကို Noti လှမ်းပို့မည့် Function
+// ပြတ်သွားသော Telegram Noti Function ကို ပြန်လည်ဖြည့်စွက်ထားပါသည်
 const sendTelegramNoti = async (orderData) => {
   const text = `🛍 <b>New Order Received!</b>\n\n` +
                `👤 <b>Customer:</b> ${orderData.userName}\n` +
@@ -51,12 +51,18 @@ const sendTelegramNoti = async (orderData) => {
 
   const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
   try {
-    await fetch(url, {
+    const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: text, parse_mode: 'HTML' })
     });
-  } catch (e) { console.error("Telegram Notification Error:", e); }
+    const data = await response.json();
+    if (!data.ok) {
+      alert("Telegram Error: " + data.description);
+    }
+  } catch (e) { 
+    console.error("Telegram Error:", e);
+  }
 };
 
 export default function App() {
@@ -70,7 +76,7 @@ export default function App() {
   const [allMembers, setAllMembers] = useState([]); 
   const [selectedCat, setSelectedCat] = useState(null);
   const [selectedGroup, setSelectedGroup] = useState(null);
-  const [selectedPlan, setSelectedPlan] = useState(null); // အသေးစိတ်ကြည့်ရန် Plan
+  const [selectedPlan, setSelectedPlan] = useState(null); 
   const [editContact, setEditContact] = useState('');
   const [adminTab, setAdminTab] = useState('orders');
   const [deliveryInputs, setDeliveryInputs] = useState({});
