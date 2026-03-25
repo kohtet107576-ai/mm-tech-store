@@ -10,7 +10,7 @@ const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw9-jvz928_Hd46Wo3Gs
 const IMGBB_API_KEY = "88d3b49cfcf4fa4b1e77ce493aa3172a";
 const ADMIN_EMAILS = ["kohtet107576@gmail.com"]; 
 const TELEGRAM_BOT_TOKEN = "8666075565:AAFFgji8bX9jxcx90GMMqYq-JwKH-PTU2vk";
-const TELEGRAM_CHAT_ID = "7427263125";
+const TELEGRAM_CHAT_ID = "-5228370357"; // အစ်ကိုရှာတွေ့ထားတဲ့ Admin Group ID 
 
 const firebaseConfig = {
   apiKey: "AIzaSyCBWTPAr0xWwpN9ASinAQWK_incw8kD-v4",
@@ -27,7 +27,7 @@ const db = getFirestore(app);
 const googleProvider = new GoogleAuthProvider();
 const appId = "mm-tech-store";
 
-// --- (၂) UTILS ---
+// --- (၂) UTILS & TELEGRAM SENDER ---
 const getPProp = (p, k) => p?.[k] || p?.[k.toLowerCase()] || p?.[k.toUpperCase()] || "";
 const formatImg = (url) => {
   if (!url || typeof url !== 'string') return LOGO_URL;
@@ -36,6 +36,27 @@ const formatImg = (url) => {
     return idMatch ? `https://drive.google.com/thumbnail?id=${idMatch[0]}&sz=w1000` : LOGO_URL;
   }
   return url;
+};
+
+// Telegram ကို Noti လှမ်းပို့မည့် Function
+const sendTelegramNoti = async (orderData) => {
+  const text = `🛍 <b>New Order Received!</b>\n\n` +
+               `👤 <b>Customer:</b> ${orderData.userName}\n` +
+               `📦 <b>Products:</b> ${orderData.product}\n` +
+               `🏷 <b>Plans:</b> ${orderData.plan}\n` +
+               `💰 <b>Total:</b> ${orderData.price} Ks\n` +
+               `💳 <b>Payment:</b> ${orderData.paymentMethod}\n` +
+               `📞 <b>Contact/ID:</b>\n<pre>${orderData.contact}</pre>\n\n` +
+               `⏱ <b>Date:</b> ${orderData.date}`;
+
+  const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
+  try {
+    await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: text, parse_mode: 'HTML' })
+    });
+  } catch (e) { console.error("Telegram Notification Error:", e); }
 };
 
 export default function App() {
@@ -49,6 +70,7 @@ export default function App() {
   const [allMembers, setAllMembers] = useState([]); 
   const [selectedCat, setSelectedCat] = useState(null);
   const [selectedGroup, setSelectedGroup] = useState(null);
+  const [selectedPlan, setSelectedPlan] = useState(null); // အသေးစိတ်ကြည့်ရန် Plan
   const [editContact, setEditContact] = useState('');
   const [adminTab, setAdminTab] = useState('orders');
   const [deliveryInputs, setDeliveryInputs] = useState({});
@@ -56,7 +78,7 @@ export default function App() {
   const [techImages, setTechImages] = useState([null, null, null]);
   const [payImg, setPayImg] = useState("");
   const [searchTerm, setSearchTerm] = useState(''); 
-  const [cart, setCart] = useState([]); // Shopping Cart
+  const [cart, setCart] = useState([]); 
 
   // --- (၃) Admin Functions ---
   const updateOrderStatus = async (orderId, newStatus, resultData = "") => {
@@ -169,7 +191,13 @@ export default function App() {
     };
     try {
       await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'orders'), orderData);
+      
+      // Send to Google Sheet
       fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(orderData) });
+      
+      // Send to Telegram Group
+      await sendTelegramNoti(orderData);
+
       setCart([]); setTechImages([null, null, null]); setPayImg(""); setEditContact(""); setView('order_success');
     } catch (e) { console.error(e); } finally { setLoading(false); }
   };
@@ -206,16 +234,6 @@ export default function App() {
         <History size={20} className="text-slate-400 cursor-pointer hover:text-blue-500 hidden md:block" onClick={() => setView('customer_dash')} />
         <User size={20} className="text-slate-400 cursor-pointer hover:text-blue-500 hidden md:block" onClick={() => setView('profile')} />
       </div>
-    </div>
-  );
-
-  const SocialLinks = () => (
-    <div className="flex justify-center gap-5 my-6 p-4 bg-[#112240]/50 rounded-3xl border border-blue-900/20 mx-6">
-      <a href="https://facebook.com" target="_blank" rel="noreferrer" className="text-blue-500 hover:scale-110 transition-transform"><Facebook size={24}/></a>
-      <a href="https://t.me/mmtech" target="_blank" rel="noreferrer" className="text-blue-400 hover:scale-110 transition-transform"><Send size={24}/></a>
-      <a href="https://wa.me/yourphone" target="_blank" rel="noreferrer" className="text-green-500 hover:scale-110 transition-transform"><MessageSquare size={24}/></a>
-      <a href="https://youtube.com" target="_blank" rel="noreferrer" className="text-red-500 hover:scale-110 transition-transform"><Youtube size={24}/></a>
-      <a href="https://tiktok.com" target="_blank" rel="noreferrer" className="text-white hover:scale-110 transition-transform"><Video size={24}/></a>
     </div>
   );
 
@@ -259,8 +277,6 @@ export default function App() {
                 />
               </div>
 
-              <SocialLinks />
-
               <div className="flex gap-2 overflow-x-auto no-scrollbar pb-6">
                 <button onClick={() => setSelectedCat(null)} className={`px-5 py-2 rounded-full text-[11px] font-black border ${!selectedCat ? 'bg-blue-600 border-blue-500 shadow-lg' : 'bg-[#112240] border-blue-900/30'}`}>All</button>
                 {dynamicCategories.map(c => (
@@ -281,6 +297,7 @@ export default function App() {
           </>
         )}
 
+        {/* --- PLAN LIST VIEW --- */}
         {view === 'group_details' && (
           <div className="flex-1 max-w-4xl mx-auto w-full p-6 pb-40">
             <MainHeader />
@@ -288,15 +305,55 @@ export default function App() {
             <h2 className="text-2xl font-black mb-8 uppercase tracking-tight">{selectedGroup?.name}</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {selectedGroup?.plans.map((p, i) => (
-                <div key={i} className="w-full bg-[#112240] p-6 rounded-[2rem] border border-blue-900/20 flex items-center justify-between hover:border-blue-500/40">
+                <div key={i} onClick={() => { setSelectedPlan(p); setView('plan_details'); }} className="w-full bg-[#112240] p-6 rounded-[2rem] border border-blue-900/20 flex items-center justify-between cursor-pointer hover:border-blue-500/40 active:scale-[0.98] transition-all">
                   <div className="text-left">
                     <h4 className="text-sm font-black text-white">{getPProp(p, 'Plan')}</h4>
                     <p className="text-blue-500 font-black">{getDisplayPrice(p)} Ks</p>
-                    {getPProp(p, 'Des') && <p className="text-[10px] text-slate-400 mt-1 line-clamp-2">{getPProp(p, 'Des')}</p>}
                   </div>
-                  <button onClick={() => {setCart([...cart, p]); alert("ခြင်းတောင်းထဲထည့်ပြီးပါပြီ");}} className="bg-blue-600 p-3 rounded-xl text-[10px] font-black active:scale-90 flex-shrink-0"><Plus size={18} className="text-white"/></button>
+                  <ChevronRight size={20} className="text-slate-500" />
                 </div>
               ))}
+            </div>
+            <BottomNav />
+          </div>
+        )}
+
+        {/* --- PLAN DETAIL VIEW (အသစ်ထည့်ထားသော စာမျက်နှာ) --- */}
+        {view === 'plan_details' && selectedPlan && (
+          <div className="flex-1 max-w-4xl mx-auto w-full p-6 pb-40 overflow-y-auto no-scrollbar">
+            <MainHeader />
+            <button onClick={() => setView('group_details')} className="p-2 bg-[#112240] rounded-xl my-6 border border-blue-900/20"><ArrowLeft size={20}/></button>
+            
+            <div className="bg-[#112240] p-6 rounded-[2.5rem] border border-blue-900/30 text-center mb-8 shadow-xl">
+              <img src={formatImg(getPProp(selectedPlan, 'Link'))} className="w-32 h-32 mx-auto mb-6 rounded-3xl object-cover shadow-2xl" alt="P"/>
+              <h2 className="text-2xl font-black uppercase text-white mb-2">{getPProp(selectedPlan, 'Name')}</h2>
+              <h3 className="text-sm font-bold text-slate-400 mb-2 uppercase tracking-widest">{getPProp(selectedPlan, 'Plan')}</h3>
+              <p className="text-blue-500 text-3xl font-black mb-6">{getDisplayPrice(selectedPlan)} Ks</p>
+
+              {getPProp(selectedPlan, 'Des') && (
+                <div className="p-5 bg-black/20 rounded-2xl text-[13px] text-slate-300 text-left whitespace-pre-wrap leading-relaxed border border-blue-900/10 mb-8">
+                  {getPProp(selectedPlan, 'Des')}
+                </div>
+              )}
+
+              <div className="flex flex-col gap-4 mt-4">
+                {/* Buy Now Button */}
+                <button onClick={() => {
+                  const alreadyInCart = cart.some(item => getPProp(item, 'Plan') === getPProp(selectedPlan, 'Plan') && getPProp(item, 'Name') === getPProp(selectedPlan, 'Name'));
+                  if (!alreadyInCart) setCart([...cart, selectedPlan]);
+                  setView('checkout');
+                }} className="w-full bg-blue-600 py-4 rounded-2xl font-black text-white shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2">
+                  <ShoppingBag size={20}/> ချက်ချင်းဝယ်မည် (Buy Now)
+                </button>
+
+                {/* Add to Cart Button */}
+                <button onClick={() => {
+                  setCart([...cart, selectedPlan]);
+                  alert("ခြင်းတောင်းထဲသို့ ထည့်ပြီးပါပြီ!");
+                }} className="w-full bg-transparent border-2 border-blue-600 text-blue-500 py-4 rounded-2xl font-black active:scale-95 transition-all flex items-center justify-center gap-2">
+                  <Plus size={20}/> ခြင်းတောင်းထဲထည့်မည် (Add to Cart)
+                </button>
+              </div>
             </div>
             <BottomNav />
           </div>
