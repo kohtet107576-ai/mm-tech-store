@@ -39,29 +39,32 @@ const formatImg = (url) => {
 };
 
 // ပြတ်သွားသော Telegram Noti Function ကို ပြန်လည်ဖြည့်စွက်ထားပါသည်
+// အရင် sendTelegramNoti နေရာမှာ ဒါလေး အစားထိုးပေးပါဗျ
 const sendTelegramNoti = async (orderData) => {
-  const text = `🛍 <b>New Order Received!</b>\n\n` +
-               `👤 <b>Customer:</b> ${orderData.userName}\n` +
-               `📦 <b>Products:</b> ${orderData.product}\n` +
-               `🏷 <b>Plans:</b> ${orderData.plan}\n` +
-               `💰 <b>Total:</b> ${orderData.price} Ks\n` +
-               `💳 <b>Payment:</b> ${orderData.paymentMethod}\n` +
-               `📞 <b>Contact/ID:</b>\n<pre>${orderData.contact}</pre>\n\n` +
-               `⏱ <b>Date:</b> ${orderData.date}`;
+  const text = `🛍 New Order Received!\n\n` +
+               `👤 Customer: ${orderData.userName}\n` +
+               `📦 Products: ${orderData.product}\n` +
+               `🏷 Plans: ${orderData.plan}\n` +
+               `💰 Total: ${orderData.price} Ks\n` +
+               `💳 Payment: ${orderData.paymentMethod}\n` +
+               `📞 Contact/ID:\n${orderData.contact}\n\n` +
+               `⏱ Date: ${orderData.date}`;
 
   const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
   try {
     const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: text, parse_mode: 'HTML' })
+      body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: text }) // parse_mode ဖြုတ်ထားပါတယ်
     });
     const data = await response.json();
+    
+    // Telegram က လက်မခံရင် ဘာကြောင့်လဲဆိုတာ အတိအကျ ပြပေးပါမယ်
     if (!data.ok) {
       alert("Telegram Error: " + data.description);
     }
   } catch (e) { 
-    console.error("Telegram Error:", e);
+    console.error("Network Error:", e);
   }
 };
 
