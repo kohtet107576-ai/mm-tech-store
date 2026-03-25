@@ -9,8 +9,8 @@ const LOGO_URL = "https://drive.google.com/thumbnail?id=1Lh-nHgyLMSr3rBVe4OGnjEv
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw9-jvz928_Hd46Wo3Gs3JZnoywR79wEq0ax-qS_zOB-7tIsekn-tJO0zPgFMv_ruGx/exec";
 const IMGBB_API_KEY = "88d3b49cfcf4fa4b1e77ce493aa3172a";
 const ADMIN_EMAILS = ["kohtet107576@gmail.com"]; 
-const TELEGRAM_BOT_TOKEN = "8508948071:AAH5uBOjAWOivmZfZK68NHXZ9ztZMeKmZZw";
-const TELEGRAM_CHAT_ID = "-1003659088621";
+const TELEGRAM_BOT_TOKEN = "8615600204:AAGzPJB_atMoQtk8KrXaJ6lM5VW_m4GjuE8"; // Bot အသစ်ရဲ့ Token
+const TELEGRAM_CHAT_ID = "7238109320"; // အစ်ကို့ရဲ့ ကိုယ်ပိုင် ID (Personal Chat)
 
 const firebaseConfig = {
   apiKey: "AIzaSyCBWTPAr0xWwpN9ASinAQWK_incw8kD-v4",
