@@ -6,6 +6,7 @@ import { ShoppingBag, Gamepad2, Smartphone, ChevronRight, ArrowLeft, CheckCircle
 
 // --- (၁) CONFIGURATION ---
 const LOGO_URL = "https://drive.google.com/thumbnail?id=1Lh-nHgyLMSr3rBVe4OGnjEvEspuMokd6&sz=w1000"; 
+// အစ်ကို့ရဲ့ Unified Google Apps Script URL ပါ
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxNJ9gsmsGyHSNJgMEjyhM2FEFxvjEmGM9I2iyCbjFfHvzbnsaukV6s4vEuxZkRJEfc/exec";
 const IMGBB_API_KEY = "88d3b49cfcf4fa4b1e77ce493aa3172a";
 const ADMIN_EMAILS = ["kohtet107576@gmail.com"]; 
@@ -25,25 +26,17 @@ const db = getFirestore(app);
 const googleProvider = new GoogleAuthProvider();
 const appId = "mm-tech-store";
 
-// Google Script ကို လှမ်းချိတ်မယ့် Noti Function အသစ်
-const sendTelegramNoti = async (orderData) => {
-  // အစ်ကို့ရဲ့ ကိုယ်ပိုင် Google Apps Script URL ပါ
-  const scriptURL = "https://script.google.com/macros/s/AKfycbxNJ9gsmsGyHSNJgMEjyhM2FEFxvjEmGM9I2iyCbjFfHvzbnsaukV6s4vEuxZkRJEfc/exec"; 
-  
+// Google Script (Unified) ကို လှမ်းချိတ်မယ့် Noti + Order Function
+const sendToGoogleScript = async (orderData) => {
   try {
-    const response = await fetch(scriptURL, {
+    // no-cors mode ကြောင့် response.json() ကို အတင်းမဖတ်ခိုင်းတော့ဘဲ fetch ပဲ လုပ်ခိုင်းထားပါတယ်
+    await fetch(SCRIPT_URL, {
       method: 'POST',
-      // CORS Error လုံးဝ မတက်အောင် text/plain နဲ့ ပြောင်းပို့ထားပါတယ်
+      mode: 'no-cors', 
       headers: { 'Content-Type': 'text/plain;charset=utf-8' }, 
       body: JSON.stringify(orderData)
     });
-    
-    const result = await response.json();
-    if(result.status === "success") {
-      console.log("Telegram သို့ Noti ပို့ခြင်း အောင်မြင်ပါသည်");
-    } else {
-      console.error("Script Error:", result.message);
-    }
+    console.log("Data sent to Google Script successfully!");
   } catch (e) { 
     console.error("Network Error:", e);
   }
@@ -136,6 +129,7 @@ export default function App() {
   }, [syncProfile]);
 
   useEffect(() => {
+    // SCRIPT_URL တစ်ခုတည်းကနေ ပစ္စည်းစာရင်းတွေ လှမ်းယူမယ်
     fetch(SCRIPT_URL).then(res => res.json()).then(data => { if (Array.isArray(data)) setProducts(data); });
   }, []);
 
@@ -191,13 +185,12 @@ export default function App() {
       status: 'Pending', timestamp: Date.now(), date: new Date().toLocaleString('en-GB')
     };
     try {
+      // ၁။ Firestore ထဲကို အရင်သိမ်းမယ်
       await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'orders'), orderData);
       
-      // Send to Google Sheet
-      fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(orderData) });
-      
-      // Send to Telegram Group via Google Apps Script
-      await sendTelegramNoti(orderData);
+      // ၂။ Google Script (Unified) ကို လှမ်းပို့မယ် 
+      // ဒီတစ်ခုတည်းနဲ့ စာရင်းသွင်းတာ၊ အမြတ်တွက်တာ၊ Noti ပို့တာ အကုန်လုပ်သွားပါမယ်
+      await sendToGoogleScript(orderData);
 
       setCart([]); setTechImages([null, null, null]); setPayImg(""); setEditContact(""); setView('order_success');
     } catch (e) { console.error(e); } finally { setLoading(false); }
