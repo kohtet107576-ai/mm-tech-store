@@ -58,29 +58,7 @@ export default function App() {
   const [searchTerm, setSearchTerm] = useState(''); 
   const [cart, setCart] = useState([]); // Shopping Cart
 
-  // --- (၃) Rose AI Chat Agent ---
-  useEffect(() => {
-    const script = document.createElement('script');
-    script.src = 'https://mmtechmdy.app.n8n.cloud/assets/chat.js'; 
-    script.async = true;
-    script.onload = () => {
-      if (window.createChat) {
-        window.createChat({
-          webhookUrl: 'https://mmtechmdy.app.n8n.cloud/webhook/0855a5bd-760c-40cf-a84e-9700769434ec/chat',
-          title: 'MM Tech Support (Rose)',
-          welcomeMessage: 'မင်္ဂလာပါရှင်၊ MM Tech မှ Rose ပါ။ ဘာကူညီပေးရမလဲရှင့်?',
-          avatarUrl: LOGO_URL,
-          backgroundColor: '#0a192f',
-          onboarding: true,
-          iFrameStyle: 'position: fixed; bottom: 85px; right: 20px; z-index: 999; border: none; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);'
-        });
-      }
-    };
-    document.body.appendChild(script);
-    return () => { if (document.body.contains(script)) document.body.removeChild(script); };
-  }, []);
-
-  // --- (၄) Admin Functions ---
+  // --- (၃) Admin Functions ---
   const updateOrderStatus = async (orderId, newStatus, resultData = "") => {
     try {
       const orderRef = doc(db, 'artifacts', appId, 'public', 'data', 'orders', orderId);
@@ -99,7 +77,7 @@ export default function App() {
     } catch (e) { alert("Error updating user: " + e.message); }
   };
 
-  // --- (၅) Firebase & Data Logic ---
+  // --- (၄) Firebase & Data Logic ---
   const syncProfile = useCallback(async (u) => {
     const docRef = doc(db, 'artifacts', appId, 'users', u.uid, 'profile', 'data');
     const memberRef = doc(db, 'artifacts', appId, 'public', 'data', 'members', u.uid);
@@ -213,7 +191,7 @@ export default function App() {
     return Object.values(groups);
   }, [products, searchTerm]);
 
-  // --- (၆) UI COMPONENTS ---
+  // --- (၅) UI COMPONENTS ---
   const MainHeader = () => (
     <div className="flex items-center justify-between p-4 bg-[#0a192f]/80 backdrop-blur-md border-b border-blue-900/20 sticky top-0 z-40">
       <div className="flex items-center gap-2">
@@ -368,4 +346,178 @@ export default function App() {
             <MainHeader />
             <button onClick={() => setView('cart_view')} className="p-2 bg-[#112240] rounded-xl my-4 border border-blue-900/20"><ArrowLeft size={20}/></button>
             
-            <div className="bg-[#112240] p-6
+            <div className="bg-[#112240] p-6 rounded-[2.5rem] border border-blue-900/30 text-center mb-8">
+              <h3 className="text-lg font-black mb-1 uppercase">Checkout Total</h3>
+              <p className="text-blue-500 font-black text-2xl mb-4">{cart.reduce((s,i)=>s+parseInt(getDisplayPrice(i)),0)} Ks</p>
+              <div className="bg-black/20 p-4 rounded-2xl text-left text-[11px] text-slate-300 font-bold border border-blue-900/10">
+                {cart.map((i, idx) => <p key={idx}>• {getPProp(i, 'Name')} - {getPProp(i, 'Plan')}</p>)}
+              </div>
+            </div>
+
+            <textarea rows="4" placeholder="ID, Password, Phone Number အကုန်ဒီမှာရေးပါ..." className="w-full bg-[#112240] p-5 rounded-2xl mb-8 text-sm outline-none border border-blue-900/20 focus:border-blue-500 transition-all shadow-inner" value={editContact} onChange={e => setEditContact(e.target.value)} />
+
+            {/* Payment Methode Selection */}
+            <div className="mb-8">
+              <label className="block text-slate-500 text-[11px] font-black uppercase mb-3 ml-2 tracking-widest">Payment Methode</label>
+              <div className="grid grid-cols-4 gap-2">
+                {[
+                  { id: 'kpay', name: 'KBZ Pay', num: '09 402529376', user: 'Daw Khin Mar Wai', img: 'https://i.ibb.co/Jj3SFW3C/kpay-logo.png' },
+                  { id: 'visa', name: 'VISA', num: '4052 6403 0832 7313', user: 'U Htet Wai Soe', img: 'https://i.ibb.co/HLR2TxPr/Untitled-1.png' },
+                  { id: 'wave', name: 'Wave Money', num: '09 793655312', user: 'U Sai Khun Thet Hein', img: 'https://i.ibb.co/23yq59BX/wave-pay.png' },
+                  { id: 'ayapay', name: 'UAB Pay', num: '09 2021942', user: 'U Htet Wai Soe', img: 'https://i.ibb.co/GQyyTxh2/uabpay.png' }
+                ].map(m => (
+                  <button key={m.id} onClick={() => setSelectedPayment(m)} className={`p-2 rounded-2xl border transition-all aspect-square flex items-center justify-center bg-white ${selectedPayment?.id === m.id ? 'border-blue-500 border-4 scale-95' : 'border-transparent'}`}>
+                    <img src={m.img} className="w-full h-auto max-h-10 object-contain" alt={m.name}/>
+                  </button>
+                ))}
+              </div>
+              {selectedPayment && (
+                <div className="mt-4 p-5 bg-blue-500/10 border border-blue-500/30 rounded-[2rem] animate-in fade-in zoom-in duration-300">
+                  <p className="text-[10px] font-black text-blue-400 uppercase">{selectedPayment.name} Account:</p>
+                  <h4 className="text-xl font-black text-white">{selectedPayment.num}</h4>
+                  <p className="text-[11px] text-slate-400 font-bold mt-1">Name: {selectedPayment.user}</p>
+                </div>
+              )}
+            </div>
+
+            <div className="mb-8">
+              <p className="text-[11px] font-black text-slate-500 uppercase mb-4 ml-2 tracking-widest">လိုအပ်သော ပုံများတင်ရန် (Optional)</p>
+              <div className="grid grid-cols-3 gap-3">
+                {techImages.map((img, idx) => (
+                  <div key={idx} className="aspect-square bg-[#112240] rounded-2xl border-2 border-dashed border-blue-900/30 overflow-hidden flex items-center justify-center relative">
+                    {img ? (
+                      <div className="relative w-full h-full">
+                        <img src={img} className="w-full h-full object-cover" alt="T"/>
+                        <button onClick={() => {const up=[...techImages]; up[idx]=null; setTechImages(up);}} className="absolute top-1 right-1 bg-red-500 p-1 rounded-full"><X size={10}/></button>
+                      </div>
+                    ) : (
+                      <label className="cursor-pointer w-full h-full flex items-center justify-center hover:bg-blue-500/5 transition-colors"><Plus className="text-blue-500" size={24}/><input type="file" className="hidden" onChange={e => handleImageUpload(e.target.files[0], idx, 'tech')}/></label>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="mb-8">
+              <p className="text-[11px] font-black text-slate-500 uppercase mb-4 ml-2 tracking-widest">Payment Receipt (Required)</p>
+              <div className="w-full aspect-video bg-[#112240] rounded-[2rem] border-2 border-dashed border-blue-900/30 flex items-center justify-center relative overflow-hidden group">
+                {payImg ? (
+                  <div className="w-full h-full relative"><img src={payImg} className="w-full h-full object-contain" alt="P"/><button onClick={() => setPayImg("")} className="absolute top-4 right-4 bg-red-500 p-2 rounded-full shadow-xl"><X size={16}/></button></div>
+                ) : (
+                  <label className="cursor-pointer w-full h-full flex flex-col items-center justify-center text-blue-500 group-hover:bg-blue-500/5 transition-colors"><ImageIcon size={32}/><p className="text-[10px] font-black uppercase mt-2 tracking-widest">ငွေလွှဲ Screenshot တင်ရန်</p><input type="file" className="hidden" onChange={e => handleImageUpload(e.target.files[0], 0, 'pay')}/></label>
+                )}
+              </div>
+            </div>
+
+            <button onClick={handleOrder} disabled={loading || !payImg || !selectedPayment} className="w-full bg-blue-600 py-5 rounded-2xl font-black text-white shadow-2xl flex items-center justify-center gap-3 active:scale-95 transition-all disabled:grayscale disabled:opacity-50">
+              {loading ? <Loader2 className="animate-spin" /> : <><Send size={20}/> Confirm & Order</>}
+            </button>
+            <BottomNav />
+          </div>
+        )}
+
+        {/* --- ADMIN DASHBOARD --- */}
+        {view === 'admin_dash' && profile?.role === 'admin' && (
+          <div className="flex-1 max-w-5xl mx-auto w-full p-8 pb-40">
+            <MainHeader />
+            <div className="flex justify-between items-center my-8">
+              <h2 className="text-2xl font-black uppercase tracking-tighter">Management</h2>
+              <div className="flex bg-[#112240] p-1 rounded-2xl border border-blue-900/20">
+                <button onClick={() => setAdminTab('orders')} className={`px-5 py-2 rounded-xl text-[10px] font-black transition-all ${adminTab === 'orders' ? 'bg-blue-600 shadow-lg' : 'text-slate-500'}`}>ORDERS</button>
+                <button onClick={() => setAdminTab('members')} className={`px-5 py-2 rounded-xl text-[10px] font-black transition-all ${adminTab === 'members' ? 'bg-blue-600 shadow-lg' : 'text-slate-500'}`}>USERS</button>
+              </div>
+            </div>
+            
+            <div className="space-y-4 overflow-y-auto no-scrollbar">
+              {adminTab === 'orders' ? allOrders.map(o => (
+                <div key={o.id} className="bg-[#112240] p-6 rounded-[2.5rem] border border-blue-900/30">
+                  <div className="flex justify-between items-start mb-4">
+                    <div><h4 className="font-black text-sm uppercase">{o.product}</h4><p className="text-blue-500 text-[10px] font-black uppercase">{o.plan} • {o.price} Ks</p></div>
+                    <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase ${o.status === 'Completed' ? 'bg-green-500/10 text-green-500' : 'bg-yellow-500/10 text-yellow-500'}`}>{o.status}</span>
+                  </div>
+                  <div className="bg-black/20 p-4 rounded-2xl text-[12px] text-slate-300 mb-4 whitespace-pre-wrap border border-blue-900/10">Method: {o.paymentMethod}<br/><br/>{o.contact}</div>
+                  <div className="flex gap-2 mb-4">
+                    {o.payImage && <a href={o.payImage} target="_blank" rel="noreferrer" className="flex-1 bg-green-600/10 p-2 rounded-xl text-center text-[9px] font-black text-green-500 border border-green-500/20">Receipt</a>}
+                    {o.techImages?.map((img, i) => <a key={i} href={img} target="_blank" rel="noreferrer" className="w-10 h-10 bg-blue-600/10 rounded-xl border border-blue-500/20 overflow-hidden shrink-0"><img src={img} className="w-full h-full object-cover" alt="T"/></a>)}
+                  </div>
+                  {o.status === 'Pending' && (
+                    <div className="flex gap-2">
+                      <input type="text" placeholder="Deliver Code..." className="flex-1 bg-[#0a192f] p-3 rounded-xl text-[11px] outline-none border border-blue-900/30" value={deliveryInputs[o.id] || ''} onChange={e => setDeliveryInputs({...deliveryInputs, [o.id]: e.target.value})} />
+                      <button onClick={() => updateOrderStatus(o.id, 'Completed', deliveryInputs[o.id])} className="bg-blue-600 px-6 rounded-xl font-black text-[10px] uppercase">Done</button>
+                    </div>
+                  )}
+                </div>
+              )) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {allMembers.map(m => (
+                    <div key={m.uid} className="bg-[#112240] p-4 rounded-3xl flex items-center justify-between border border-blue-900/10 shadow-lg">
+                      <div className="flex items-center gap-3">
+                        <img src={m.photoURL || LOGO_URL} className="w-10 h-10 rounded-xl object-cover" alt="M"/>
+                        <div><p className="text-[11px] font-black text-white">{m.name}</p><p className="text-[9px] text-blue-500 uppercase font-bold">{m.tier}</p></div>
+                      </div>
+                      <div className="flex gap-1 bg-[#0a192f] p-1 rounded-xl">
+                        {['Standard', 'VIP', 'Reseller'].map(t => (
+                          <button key={t} onClick={() => updateMemberTier(m.uid, t)} className={`px-2 py-1 rounded-lg text-[8px] font-black uppercase transition-all ${m.tier === t ? 'bg-blue-600 text-white' : 'text-slate-500'}`}>{t[0]}</button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <BottomNav />
+          </div>
+        )}
+
+        {/* --- CUSTOMER DASHBOARD --- */}
+        {view === 'customer_dash' && (
+          <div className="flex-1 max-w-4xl mx-auto w-full p-8 pb-40">
+            <MainHeader />
+            <h2 className="text-3xl font-black my-8 tracking-tight uppercase">History</h2>
+            <div className="space-y-4 overflow-y-auto no-scrollbar">
+              {myOrders.length === 0 ? <p className="text-slate-600 text-center py-20 text-xs italic uppercase tracking-widest">No orders yet</p> : myOrders.map(o => (
+                <div key={o.id} className="bg-[#112240] p-6 rounded-[2.5rem] border border-blue-900/30 shadow-xl">
+                  <div className="flex justify-between items-start mb-2">
+                    <div><h4 className="font-black text-[13px] uppercase text-white">{o.product}</h4><p className="text-blue-500 text-[10px] font-black uppercase tracking-widest">{o.plan} • {o.price} Ks</p></div>
+                    <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase ${o.status === 'Completed' ? 'bg-green-500/10 text-green-500' : 'bg-yellow-500/10 text-yellow-500'}`}>{o.status}</span>
+                  </div>
+                  {o.result && (
+                    <div className="mt-4 p-4 bg-green-500/5 border border-green-500/10 rounded-2xl flex items-center justify-between gap-3 shadow-inner">
+                      <code className="text-xs font-bold text-green-400 break-all">{o.result}</code>
+                      <button onClick={() => {navigator.clipboard.writeText(o.result); alert("Copied!");}} className="bg-green-600 p-2 rounded-lg text-white shadow-xl active:scale-90 transition-all"><Save size={14}/></button>
+                    </div>
+                  )}
+                  <p className="text-[9px] text-slate-600 italic mt-4 uppercase">{o.date}</p>
+                </div>
+              ))}
+            </div>
+            <BottomNav />
+          </div>
+        )}
+
+        {/* --- PROFILE VIEW --- */}
+        {view === 'profile' && (
+          <div className="p-10 flex flex-col flex-1 items-center justify-center pb-40">
+            <MainHeader />
+            <img src={profile?.photoURL || LOGO_URL} className="w-24 h-24 rounded-[2.5rem] border-4 border-blue-600/20 mb-6 shadow-2xl" alt="U"/>
+            <h3 className="text-3xl font-black tracking-tighter uppercase">{profile?.name}</h3>
+            <p className="text-blue-500 font-black uppercase tracking-widest text-[11px] mb-12">{profile?.tier} Account</p>
+            <button onClick={() => auth.signOut()} className="flex items-center gap-2 text-red-500 font-black text-sm active:scale-95 transition-all hover:opacity-80"><LogOut size={20}/> Sign Out Account</button>
+            <BottomNav />
+          </div>
+        )}
+
+        {/* --- ORDER SUCCESS --- */}
+        {view === 'order_success' && (
+          <div className="flex-1 flex flex-col items-center justify-center p-12 text-center animate-in zoom-in duration-500">
+            <CheckCircle2 size={100} className="text-green-500 mb-8" />
+            <h2 className="text-4xl font-black mb-4 uppercase tracking-tighter">Ordered!</h2>
+            <p className="text-slate-400 text-sm mb-12 uppercase tracking-widest font-bold">Thank you for choosing MM Tech</p>
+            <button onClick={() => setView('customer_dash')} className="w-full max-w-xs bg-blue-600 py-5 rounded-3xl font-black text-white shadow-2xl active:scale-95 transition-all uppercase tracking-widest">Go to History</button>
+          </div>
+        )}
+
+      </div>
+    </div>
+  );
+}
