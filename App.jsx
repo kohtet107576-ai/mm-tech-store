@@ -173,27 +173,47 @@ export default function App() {
   };
 
   const handleOrder = async () => {
-    if (cart.length === 0 || !editContact.trim() || !payImg || !selectedPayment) return alert("အချက်အလက်အားလုံး (Cart, ငွေလွှဲပုံ, Payment) ဖြည့်ပေးပါဗျ");
+    if (cart.length === 0 || !editContact.trim() || !payImg || !selectedPayment) 
+      return alert("အချက်အလက်အားလုံး (Cart, ငွေလွှဲပုံ, Payment) ဖြည့်ပေးပါဗျ");
+    
     setLoading(true);
+    
+    // Order Data ပြင်ဆင်ခြင်း
     const orderData = {
-      userId: user.uid, userName: profile?.name,
+      userId: user.uid,
+      userName: profile?.name,
       product: cart.map(i => getPProp(i, 'Name')).join(", "),
       plan: cart.map(i => getPProp(i, 'Plan')).join(", "),
       price: cart.reduce((s, i) => s + parseInt(getDisplayPrice(i)), 0),
-      contact: editContact, paymentMethod: selectedPayment.name,
-      techImages: techImages.filter(img => img !== null), payImage: payImg, 
-      status: 'Pending', timestamp: Date.now(), date: new Date().toLocaleString('en-GB')
+      contact: editContact,
+      paymentMethod: selectedPayment.name,
+      techImages: techImages.filter(img => img !== null),
+      payImage: payImg,
+      // အမြတ်တွက်ရန်အတွက် ခြင်းတောင်းထဲက ပစ္စည်းတွေကို Array အနေနဲ့ ထည့်ပို့ရပါမယ် (ဒါအရေးကြီးဆုံးပါ)
+      items: cart.map(i => ({ Name: getPProp(i, 'Name'), Plan: getPProp(i, 'Plan') })), 
+      status: 'Pending',
+      timestamp: Date.now(),
+      date: new Date().toLocaleString('en-GB')
     };
+
     try {
-      // ၁။ Firestore ထဲကို အရင်သိမ်းမယ်
+      // ၁။ Firestore ထဲကို သိမ်းမယ်
       await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'orders'), orderData);
       
-      // ၂။ Google Script (Unified) ကို လှမ်းပို့မယ် 
-      // ဒီတစ်ခုတည်းနဲ့ စာရင်းသွင်းတာ၊ အမြတ်တွက်တာ၊ Noti ပို့တာ အကုန်လုပ်သွားပါမယ်
+      // ၂။ Google Script ကို လှမ်းပို့မယ်
       await sendToGoogleScript(orderData);
 
-      setCart([]); setTechImages([null, null, null]); setPayImg(""); setEditContact(""); setView('order_success');
-    } catch (e) { console.error(e); } finally { setLoading(false); }
+      setCart([]); 
+      setTechImages([null, null, null]); 
+      setPayImg(""); 
+      setEditContact(""); 
+      setView('order_success');
+    } catch (e) { 
+      console.error(e); 
+      alert("Error occurred. Please try again.");
+    } finally { 
+      setLoading(false); 
+    }
   };
 
   const dynamicCategories = useMemo(() => {
