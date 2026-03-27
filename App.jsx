@@ -7,7 +7,7 @@ import { ShoppingBag, Gamepad2, Smartphone, ChevronRight, ArrowLeft, CheckCircle
 // --- (၁) CONFIGURATION ---
 const LOGO_URL = "https://drive.google.com/thumbnail?id=1Lh-nHgyLMSr3rBVe4OGnjEvEspuMokd6&sz=w1000"; 
 // အစ်ကို့ရဲ့ Unified Google Apps Script URL ပါ
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby_ABWPUizSi3jIgruQP1aDf71GTZSttEJPU1BdeeYSCUTtxKePxSFJ8p0lebY7p7t3/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwLuaNqstdq1oVjhPx56KjgnVr4pChx7_YxebMAqyoPOSVexIMS2v1ZZADWChEaibZc/exec";
 const IMGBB_API_KEY = "88d3b49cfcf4fa4b1e77ce493aa3172a";
 const ADMIN_EMAILS = ["kohtet107576@gmail.com"]; 
 
