@@ -7,7 +7,7 @@ import { ShoppingBag, Gamepad2, Smartphone, ChevronRight, ArrowLeft, CheckCircle
 // --- (၁) CONFIGURATION ---
 const LOGO_URL = "https://drive.google.com/thumbnail?id=1Lh-nHgyLMSr3rBVe4OGnjEvEspuMokd6&sz=w1000"; 
 // အစ်ကို့ရဲ့ Unified Google Apps Script URL ပါ
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXkIQJu56hBTLq5wgI5DhwvhoOdxhBTcQBxf45JvyddIBDSI1ChiKHkcOOA1Ie0Ezh/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby9pJYPlveiFf3vUc7cL4GYNH5sTrQfASIrzJHzBgiQUBLOQPzPPWi7bCXvl3z_BuU1/exec";
 const IMGBB_API_KEY = "88d3b49cfcf4fa4b1e77ce493aa3172a";
 const ADMIN_EMAILS = ["kohtet107576@gmail.com"]; 
 
@@ -353,13 +353,21 @@ export default function App() {
               )}
 
               <div className="flex flex-col gap-4 mt-4">
-                <button onClick={() => {
-                  const alreadyInCart = cart.some(item => getPProp(item, 'Plan') === getPProp(selectedPlan, 'Plan') && getPProp(item, 'Name') === getPProp(selectedPlan, 'Name'));
-                  if (!alreadyInCart) setCart([...cart, selectedPlan]);
-                  setView('checkout');
-                }} className="w-full bg-blue-600 py-4 rounded-2xl font-black text-white shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2">
-                  <ShoppingBag size={20}/> ချက်ချင်းဝယ်မည် (Buy Now)
-                </button>
+<button onClick={() => {
+  setCart(prevCart => {
+    const isAlreadyInCart = prevCart.some(item => 
+      getPProp(item, 'Plan') === getPProp(selectedPlan, 'Plan') && 
+      getPProp(item, 'Name') === getPProp(selectedPlan, 'Name')
+    );
+    if (!isAlreadyInCart) {
+      return [...prevCart, selectedPlan];
+    }
+    return prevCart;
+  });
+  setView('checkout');
+}} className="w-full bg-blue-600 py-4 rounded-2xl font-black text-white shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2">
+  <ShoppingBag size={20}/> ချက်ချင်းဝယ်မည် (Buy Now)
+</button>
 
                 <button onClick={() => {
                   setCart([...cart, selectedPlan]);
