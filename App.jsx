@@ -29,14 +29,16 @@ const appId = "mm-tech-store";
 // Google Script (Unified) ကို လှမ်းချိတ်မယ့် Noti + Order Function
 const sendToGoogleScript = async (orderData) => {
   try {
-    // no-cors mode ကြောင့် response.json() ကို အတင်းမဖတ်ခိုင်းတော့ဘဲ fetch ပဲ လုပ်ခိုင်းထားပါတယ်
+    // Google Script ကို application/json နဲ့ပို့ရင် CORS error တက်တတ်လို့
+    // text/plain နဲ့ပို့တာက အသေချာဆုံးနည်းလမ်းဖြစ်ပါတယ်
     await fetch(SCRIPT_URL, {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json"
-  },
-  body: JSON.stringify(orderData)
-});
+      method: "POST",
+      mode: "no-cors", // Redirect တွေကို အလိုအလျောက် handle လုပ်ဖို့
+      headers: {
+        "Content-Type": "text/plain;charset=utf-8"
+      },
+      body: JSON.stringify(orderData)
+    });
     console.log("Data sent to Google Script successfully!");
   } catch (e) { 
     console.error("Network Error:", e);
