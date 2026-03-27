@@ -31,11 +31,12 @@ const sendToGoogleScript = async (orderData) => {
   try {
     // no-cors mode ကြောင့် response.json() ကို အတင်းမဖတ်ခိုင်းတော့ဘဲ fetch ပဲ လုပ်ခိုင်းထားပါတယ်
     await fetch(SCRIPT_URL, {
-      method: 'POST',
-      mode: 'no-cors', 
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' }, 
-      body: JSON.stringify(orderData)
-    });
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json"
+  },
+  body: JSON.stringify(orderData)
+});
     console.log("Data sent to Google Script successfully!");
   } catch (e) { 
     console.error("Network Error:", e);
