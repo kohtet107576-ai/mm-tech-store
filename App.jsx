@@ -7,7 +7,7 @@ import { ShoppingBag, Gamepad2, Smartphone, ChevronRight, ArrowLeft, CheckCircle
 // --- (၁) CONFIGURATION ---
 const LOGO_URL = "https://drive.google.com/thumbnail?id=1Lh-nHgyLMSr3rBVe4OGnjEvEspuMokd6&sz=w1000"; 
 // အစ်ကို့ရဲ့ Unified Google Apps Script URL ပါ
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxZNoAY4rWQet6J6fQCDde63bCG39i606WzDTB7Kq8F-aoLjben2MnpP36EWQm400Py/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwo5LOFfzD5MS1LedeIL4cIjPE8xcfwcNRw1CGGj3zVyy5Nmy21-_nM2iAxeKmhK0dK/exec";
 const IMGBB_API_KEY = "88d3b49cfcf4fa4b1e77ce493aa3172a";
 const ADMIN_EMAILS = ["kohtet107576@gmail.com"]; 
 
@@ -183,6 +183,7 @@ export default function App() {
     // Order Data ပြင်ဆင်ခြင်း
     const orderData = {
       userId: user.uid,
+      userGmail: user.email,
       userName: profile?.name,
       product: cart.map(i => getPProp(i, 'Name')).join(", "),
       plan: cart.map(i => getPProp(i, 'Plan')).join(", "),
