@@ -6,7 +6,7 @@ import { ShoppingBag, ArrowLeft, CheckCircle2, Loader2, User, ShieldCheck, LogOu
 
 // --- (၁) CONFIGURATION ---
 const LOGO_URL = "https://drive.google.com/thumbnail?id=1Lh-nHgyLMSr3rBVe4OGnjEvEspuMokd6&sz=w1000"; 
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyAFUjLmxxR3rS-KJIcBsi9x-Ah-ZA2JPNRzktW5N2s4UTdRtDiZT6hGvnuDjOjkxRF/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxHeHDq5ociolCj-Bro29TsiNBjy4FPT1g5H-_5Mg7bpX9J__ghfQ_O7NWH0guz4GcW/exec";
 const IMGBB_API_KEY = "88d3b49cfcf4fa4b1e77ce493aa3172a";
 const ADMIN_EMAILS = ["kohtet107576@gmail.com"]; 
 
@@ -149,9 +149,9 @@ export default function App() {
     <div className="fixed right-6 bottom-32 z-[100] flex flex-col items-end gap-3">
       {isSocialOpen && (
         <div className="flex flex-col gap-3 mb-2 animate-in slide-in-from-bottom-5 duration-300">
-          <a href="https://facebook.com/mmtech" target="_blank" rel="noreferrer" className="bg-blue-600 p-3 rounded-full shadow-2xl text-white hover:scale-110 transition-transform"><Facebook size={20}/></a>
-          <a href="https://t.me/mmtech" target="_blank" rel="noreferrer" className="bg-blue-400 p-3 rounded-full shadow-2xl text-white hover:scale-110 transition-transform"><Send size={20}/></a>
-          <a href="viber://chat?number=%2B959402529376" target="_blank" rel="noreferrer" className="bg-purple-600 p-3 rounded-full shadow-2xl text-white hover:scale-110 transition-transform"><MessageCircle size={20}/></a>
+          <a href="https://www.facebook.com/share/188Uv3Fdkq/" target="_blank" rel="noreferrer" className="bg-blue-600 p-3 rounded-full shadow-2xl text-white hover:scale-110 transition-transform"><Facebook size={20}/></a>
+          <a href="https://t.me/mmtech19" target="_blank" rel="noreferrer" className="bg-blue-400 p-3 rounded-full shadow-2xl text-white hover:scale-110 transition-transform"><Send size={20}/></a>
+          <a href="viber://chat?number=%2B959976659997" target="_blank" rel="noreferrer" className="bg-purple-600 p-3 rounded-full shadow-2xl text-white hover:scale-110 transition-transform"><MessageCircle size={20}/></a>
         </div>
       )}
       <button onClick={() => setIsSocialOpen(!isSocialOpen)} className={`${isSocialOpen ? 'bg-red-500' : 'bg-blue-600'} p-4 rounded-full shadow-2xl text-white transition-all transform active:scale-90`}><Share2 size={24}/></button>
