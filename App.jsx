@@ -313,7 +313,12 @@ export default function App() {
                     <div className="flex flex-col gap-3">
                       {/* အစ်ကိုပြောတဲ့ Enter ခေါက်လို့ရတဲ့ Textarea အကွက် */}
                       <textarea rows="3" placeholder="Deliver details (Gmail, Pass, Codes, etc)..." className="w-full bg-[#0a192f] p-4 rounded-2xl text-[11px] outline-none border border-blue-900/30 focus:border-blue-500 text-white" value={deliveryInputs[o.id] || ''} onChange={e => setDeliveryInputs({...deliveryInputs, [o.id]: e.target.value})} />
-                      <button onClick={async () => { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'orders', o.id), { status: 'Completed', result: deliveryInputs[o.id] }); alert("Order Marked as Completed!"); }} className="w-full bg-blue-600 py-4 rounded-xl font-black text-[11px] uppercase shadow-lg active:scale-95 transition-all hover:bg-blue-500">CONFIRM & SEND RESULT</button>
+                      <button 
+  onClick={() => updateOrderStatus(o.id, 'Completed', deliveryInputs[o.id])} 
+  className="w-full bg-blue-600 py-4 rounded-xl font-black text-[11px] uppercase shadow-lg active:scale-95 transition-all hover:bg-blue-500"
+>
+  CONFIRM & SEND RESULT
+</button>
                     </div>
                   )}
                 </div>
