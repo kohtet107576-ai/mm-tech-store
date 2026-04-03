@@ -94,26 +94,88 @@ export default function App() {
     }
   }, [user, profile]);
 
+// --- (၁) အော်ဒါအသစ် တင်သည့် Function ---
   const handleOrder = async () => {
     if (!user) return setView('welcome');
-    if (cart.length === 0 || !editContact.trim() || !payImg || !selectedPayment) return alert("ကျေးဇူးပြု၍ အချက်အလက်များ ပြည့်စုံစွာ ဖြည့်ပေးပါဗျ။");
-    setLoading(true);
+    if (cart.length === 0 || !editContact.trim() || !payImg || !selectedPayment) {
+      return alert("အချက်အလက်များ ပြည့်စုံစွာ ဖြည့်ပေးပါဗျ။");
+    }
+
+    setLoading(true); // တစ်ခါပဲ သုံးရပါမယ်
+
     const orderData = {
-      userId: user.uid, userGmail: user.email, userName: profile?.name,
+      userId: user.uid,
+      userGmail: user.email,
+      userName: profile?.name,
       product: cart.map(i => getPProp(i, 'Name')).join(", "),
       plan: cart.map(i => getPProp(i, 'Plan')).join(", "),
       price: cart.reduce((s, i) => s + parseInt(getDisplayPrice(i)), 0),
-      contact: editContact, paymentMethod: selectedPayment.name,
-      payImage: payImg, items: cart.map(i => ({ Name: getPProp(i, 'Name'), Plan: getPProp(i, 'Plan') })),
+      contact: editContact,
+      paymentMethod: selectedPayment.name,
+      payImage: payImg,
+      items: cart.map(i => ({ Name: getPProp(i, 'Name'), Plan: getPProp(i, 'Plan') })),
       date: new Date().toLocaleString('en-GB')
     };
+
     try {
-      await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'orders'), { ...orderData, status: 'Pending', timestamp: Date.now() });
-      await fetch(SCRIPT_URL, { method: "POST", mode: "no-cors", body: JSON.stringify(orderData) });
-      setCart([]); setPayImg(""); setView('order_success');
-    } catch (e) { alert("Error!"); } finally { setLoading(false); }
+      // ၁။ Firestore ထဲမှာ သိမ်းပြီး ID ယူမယ်
+      const docRef = await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'orders'), { 
+        ...orderData, 
+        status: 'Pending', 
+        timestamp: Date.now() 
+      });
+
+      // ၂။ Google Script ဆီကို orderId ပါ ထည့်ပို့မယ် (Column O အတွက်)
+      await fetch(SCRIPT_URL, { 
+        method: "POST", 
+        mode: "no-cors", 
+        body: JSON.stringify({ 
+          ...orderData, 
+          type: "new_order", 
+          orderId: docRef.id 
+        }) 
+      });
+
+      setCart([]); 
+      setPayImg(""); 
+      setView('order_success');
+      
+    } catch (e) { 
+      console.error(e);
+      alert("Error occurred. Please try again."); 
+    } finally { 
+      setLoading(false); 
+    }
   };
 
+  // --- (၂) အော်ဒါပိတ်ပြီး Sheet ပါ Update လုပ်သည့် Function (handleOrder ရဲ့ အပြင်မှာ ထားပါ) ---
+  const updateOrderStatus = async (orderId, newStatus, resultData = "") => {
+    try {
+      setLoading(true);
+      const orderRef = doc(db, 'artifacts', appId, 'public', 'data', 'orders', orderId);
+      await updateDoc(orderRef, { status: newStatus, result: resultData });
+
+      // Status က Completed ဖြစ်ရင် Google Sheet ရဲ့ Column N မှာ စာသွားရိုက်မယ်
+      if (newStatus === 'Completed') {
+        await fetch(SCRIPT_URL, {
+          method: "POST",
+          mode: "no-cors",
+          body: JSON.stringify({
+            type: "update_order",
+            orderId: orderId,
+            resultData: resultData // Admin textarea ထဲမှာ ရိုက်လိုက်တဲ့စာ
+          })
+        });
+      }
+      alert("Delivery Confirmed & Sheet Updated!");
+    } catch (e) { 
+      alert(e.message); 
+    } finally { 
+      setLoading(false); 
+    }
+  };
+
+  // စျေးနှုန်းတွက်သည့် Function
   const getDisplayPrice = (plan) => {
     const tier = profile?.tier || 'Standard';
     return getPProp(plan, `Price_${tier}`) || getPProp(plan, 'Price') || 0;
