@@ -59,6 +59,7 @@ export default function App() {
   const [cart, setCart] = useState([]);
   const [isSocialOpen, setIsSocialOpen] = useState(false);
 
+  // --- LOGIC ---
   const syncProfile = useCallback(async (u) => {
     const docRef = doc(db, 'artifacts', appId, 'users', u.uid, 'profile', 'data');
     const memberRef = doc(db, 'artifacts', appId, 'public', 'data', 'members', u.uid);
@@ -114,63 +115,70 @@ export default function App() {
         await updateDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data'), { balance: newBal });
         await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'members', user.uid), { balance: newBal });
         await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'logs'), { type: 'Purchase', targetUser: profile.name, targetGmail: profile.email, amount: -totalPrice, newBalance: newBal, detail: cart.map(i=>i.Name).join(","), date: new Date().toLocaleString(), timestamp: Date.now() });
-        alert(`✅ အောင်မြင်ပါသည်။ \n💸 ဖြတ်တောက်ငွေ: -${totalPrice} Ks\n💰 လက်ကျန်ငွေ: ${newBal} Ks`);
       }
       await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'orders'), { userId: user.uid, userGmail: user.email, userName: profile?.name, product: cart.map(i => getPProp(i, 'Name')).join(", "), price: totalPrice, contact: editContact, paymentMethod: selectedPayment.name, payImage: isCrd ? "" : payImg, date: new Date().toLocaleString(), status: 'Pending', timestamp: Date.now() });
       setCart([]); setView('order_success');
     } catch(e) { alert(e.message); } finally { setLoading(false); }
   };
 
-  // --- UI START ---
+  // --- UI COMPONENTS ---
+  const MainHeader = () => <div className="flex items-center justify-between p-4 bg-[#0a192f] border-b border-blue-900/20"><div className="flex items-center gap-2"><img src={LOGO_URL} className="w-8 h-8 rounded-lg" alt="L"/><h2 className="text-sm font-black text-white">MM Tech</h2></div><div className="relative cursor-pointer" onClick={() => setView('cart_view')}><ShoppingCart size={22} className="text-blue-500" />{cart.length > 0 && <span className="absolute -top-2 -right-2 bg-red-600 text-white w-4 h-4 rounded-full flex items-center justify-center text-[9px]">{cart.length}</span>}</div></div>;
+  const BottomNav = () => <nav className="fixed bottom-0 left-0 w-full bg-[#0a192f] p-5 flex justify-around border-t border-blue-900/10 z-50"><button onClick={() => setView('home')}><ShoppingBag size={24} className={view === 'home' ? 'text-blue-500' : 'text-slate-500'}/></button><button onClick={() => setView('customer_dash')}><History size={24} className={view === 'customer_dash' ? 'text-blue-500' : 'text-slate-500'}/></button>{profile?.role === 'admin' && <button onClick={() => setView('admin_dash')}><ShieldCheck size={24} className={view === 'admin_dash' ? 'text-blue-500' : 'text-slate-500'}/></button>}</nav>;
+
+  if (view === 'initializing') return <div className="min-h-screen bg-[#050d1a] flex items-center justify-center"><Loader2 className="animate-spin text-blue-500" size={40}/></div>;
+
   return (
     <div className="bg-[#050d1a] min-h-screen text-white font-sans max-w-lg mx-auto overflow-hidden">
-      {/* (ဤနေရာတွင် ဆရာထက်၏ မူလ UI ကုဒ်များကို ထည့်ပါ) */}
+      {/* ဤနေရာတွင် ဆရာထက်၏ Home/Product မူလ UI ကို ထည့်သွင်းပါ */}
       
-      {/* အော်ဒါနှင့် အသုံးပြုသူမှတ်တမ်းများအတွက် logic */}
       {view === 'admin_dash' && (
-        <div className="p-6">
+        <div className="p-6 pb-40 min-h-screen">
+          <MainHeader />
           <div className="flex gap-2 my-6">
-            <button onClick={() => { setAdminTab('orders'); setActiveMember(null); }} className="bg-blue-600 px-3 py-1 rounded text-[10px]">Orders</button>
-            <button onClick={() => { setAdminTab('members'); setActiveMember(null); }} className="bg-blue-600 px-3 py-1 rounded text-[10px]">Users</button>
-            <button onClick={() => { setAdminTab('logs'); setActiveMember(null); }} className="bg-blue-600 px-3 py-1 rounded text-[10px]">Logs</button>
+            <button onClick={() => { setAdminTab('orders'); setActiveMember(null); }} className="bg-blue-600 px-4 py-2 rounded-xl text-xs font-bold">Orders</button>
+            <button onClick={() => { setAdminTab('members'); setActiveMember(null); }} className="bg-blue-600 px-4 py-2 rounded-xl text-xs font-bold">Users</button>
+            <button onClick={() => { setAdminTab('logs'); setActiveMember(null); }} className="bg-blue-600 px-4 py-2 rounded-xl text-xs font-bold">Logs</button>
           </div>
           {adminTab === 'members' && !activeMember && (
-            <div className="space-y-2">{allMembers.map(m => (
-              <div key={m.uid} onClick={() => { setActiveMember(m); setAdminTab('member_history'); }} className="bg-[#112240] p-3 rounded flex justify-between text-xs cursor-pointer">
-                <p>{m.name}</p><p>{m.balance || 0} Ks</p>
+            <div className="space-y-3">{allMembers.map(m => (
+              <div key={m.uid} onClick={() => { setActiveMember(m); setAdminTab('member_history'); }} className="bg-[#112240] p-4 rounded-2xl flex justify-between items-center cursor-pointer">
+                <p className="font-bold text-sm">{m.name}</p><p className="text-[10px] text-blue-400">{m.balance || 0} Ks</p>
               </div>
             ))}</div>
           )}
           {adminTab === 'member_history' && activeMember && (
-            <div className="bg-[#112240] p-4 rounded text-xs">
-              <button onClick={() => { setActiveMember(null); setAdminTab('members'); }} className="mb-2 text-blue-400">← Back</button>
-              <p className="font-bold">{activeMember.name}</p>
-              <p className="mb-4">Balance: {activeMember.balance || 0} Ks</p>
-              <div className="space-y-1">{sysLogs.filter(l => l.targetGmail === activeMember.email).map(l => (
-                <div key={l.id} className="flex justify-between border-b border-white/10 py-1">
+            <div className="bg-[#112240] p-6 rounded-3xl">
+              <button onClick={() => { setActiveMember(null); setAdminTab('members'); }} className="mb-4 text-blue-500 text-xs">Back</button>
+              <h3 className="font-black text-xl">{activeMember.name}</h3>
+              <p className="text-sm text-slate-400 mb-6">Balance: {activeMember.balance || 0} Ks</p>
+              <div className="space-y-2">{sysLogs.filter(l => l.targetGmail === activeMember.email).map(l => (
+                <div key={l.id} className="flex justify-between p-3 bg-black/20 rounded-lg text-xs">
                   <span>{l.detail}</span><span className={l.amount > 0 ? 'text-green-500' : 'text-red-500'}>{l.amount} Ks</span>
                 </div>
               ))}</div>
             </div>
           )}
-          {adminTab === 'logs' && <div className="space-y-1">{sysLogs.map(l => (
-            <div key={l.id} className="bg-[#112240] p-2 rounded text-[10px] flex justify-between">
-              <span>{l.targetUser} : {l.detail}</span><span className={l.amount > 0 ? 'text-green-500' : 'text-red-500'}>{l.amount} Ks</span>
+          {adminTab === 'logs' && <div className="space-y-2">{sysLogs.map(l => (
+            <div key={l.id} className="bg-[#112240] p-3 rounded-lg text-xs flex justify-between">
+              <p>{l.targetUser} - {l.detail}</p><p className={l.amount > 0 ? 'text-green-500' : 'text-red-500'}>{l.amount} Ks</p>
             </div>
           ))}</div>}
+          <BottomNav />
         </div>
       )}
       
       {view === 'customer_dash' && (
-        <div className="p-6">
-          <h2 className="text-sm font-bold mb-4">My History</h2>
-          <div className="space-y-2">{myOrders.map(o => (<div key={o.id} className="bg-[#112240] p-3 rounded text-xs">{o.product} - {o.price} Ks</div>))}</div>
-          <h2 className="text-sm font-bold my-4">Balance Logs</h2>
-          <div className="space-y-2">{sysLogs.filter(l => l.targetGmail === user?.email).map(l => (
-            <div key={l.id} className="p-3 bg-[#112240] rounded text-xs flex justify-between">
-              <span>{l.detail}</span><span className={l.amount > 0 ? 'text-green-500' : 'text-red-500'}>{l.amount} Ks</span>
-            </div>
-          ))}</div>
+        <div className="p-6 pb-40">
+           <MainHeader />
+           <h2 className="text-lg font-black my-6">My History</h2>
+           <div className="space-y-4">{myOrders.map(o => (<div key={o.id} className="bg-[#112240] p-4 rounded-xl text-xs">{o.product} - {o.price} Ks</div>))}</div>
+           <h2 className="text-lg font-black my-6">Balance Logs</h2>
+           <div className="space-y-2">{sysLogs.filter(l => l.targetGmail === user?.email).map(l => (
+             <div key={l.id} className="p-3 bg-[#112240] rounded-lg text-xs flex justify-between">
+               <span>{l.detail}</span><span className={l.amount > 0 ? 'text-green-500' : 'text-red-500'}>{l.amount} Ks</span>
+             </div>
+           ))}</div>
+           <BottomNav />
         </div>
       )}
     </div>
