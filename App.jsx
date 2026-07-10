@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, collection, addDoc, onSnapshot, updateDoc, query, orderBy } from 'firebase/firestore';
-import { ShoppingBag, ArrowLeft, CheckCircle2, Loader2, User, ShieldCheck, LogOut, Send, Save, Layers, Image as ImageIcon, History, Plus, X, Search, ShoppingCart, LogIn, Facebook, Share2, MessageCircle, ChevronRight, Trash2, Wallet, FileText } from 'lucide-react';
+import { ShoppingBag, ArrowLeft, CheckCircle2, Loader2, User, ShieldCheck, LogOut, Send, Save, Layers, Image as ImageIcon, History, Plus, X, Search, ShoppingCart, LogIn, Facebook, Share2, MessageCircle, ChevronRight, Trash2, Wallet } from 'lucide-react';
 
 // --- (၁) CONFIGURATION ---
 const LOGO_URL = "https://drive.google.com/thumbnail?id=1Lh-nHgyLMSr3rBVe4OGnjEvEspuMokd6&sz=w1000"; 
@@ -45,12 +45,11 @@ export default function App() {
   const [myOrders, setMyOrders] = useState([]);
   const [allOrders, setAllOrders] = useState([]); 
   const [allMembers, setAllMembers] = useState([]); 
-  const [sysLogs, setSysLogs] = useState([]); // System Logs များကို သိမ်းရန်
   const [selectedCat, setSelectedCat] = useState(null);
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [editContact, setEditContact] = useState('');
-  const [adminTab, setAdminTab] = useState('orders'); // orders | members | logs
+  const [adminTab, setAdminTab] = useState('orders');
   const [deliveryInputs, setDeliveryInputs] = useState({});
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [payImg, setPayImg] = useState("");
@@ -64,11 +63,12 @@ export default function App() {
     const memberRef = doc(db, 'artifacts', appId, 'public', 'data', 'members', u.uid);
     try {
       const docSnap = await getDoc(docRef);
+      // အသစ်ထည့်လိုက်သော အချက်: Balance ကို ၀ ဖြင့် အစပြုပေးမည်
       let pData = docSnap.exists() ? docSnap.data() : {
         name: u.displayName, email: u.email, tier: ADMIN_EMAILS.includes(u.email) ? 'Admin' : 'Standard',
         role: ADMIN_EMAILS.includes(u.email) ? 'admin' : 'user', uid: u.uid, photoURL: u.photoURL, balance: 0
       };
-      if (pData.balance === undefined) pData.balance = 0; 
+      if (pData.balance === undefined) pData.balance = 0; // အဟောင်းတွေမှာ balance မရှိရင် 0 သတ်မှတ်မယ်
 
       await setDoc(docRef, pData, { merge: true });
       await setDoc(memberRef, pData, { merge: true });
@@ -92,15 +92,12 @@ export default function App() {
       setAllOrders(docs); setMyOrders(docs.filter(o => o.userId === user.uid));
     });
     
+    // User ရဲ့ Balance ပြောင်းလဲမှုကို Real-time ဖတ်ရန်
     const userRef = doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data');
     onSnapshot(userRef, (doc) => { if(doc.exists()) setProfile(doc.data()); });
 
     if (profile?.role === 'admin') {
       onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'members'), (sn) => setAllMembers(sn.docs.map(d => ({ id: d.id, ...d.data() }))));
-      // Logs များကို ဖတ်ရန်
-      onSnapshot(query(collection(db, 'artifacts', appId, 'public', 'data', 'logs'), orderBy('timestamp', 'desc')), (sn) => {
-        setSysLogs(sn.docs.map(d => ({ id: d.id, ...d.data() })));
-      });
     }
   }, [user, profile?.role]);
 
@@ -115,6 +112,7 @@ export default function App() {
       return alert("အချက်အလက်များ ပြည့်စုံစွာ ဖြည့်ပေးပါဗျ။");
     }
 
+    // 🔴 ပိုက်ဆံလုံလောက်မှု ရှိ/မရှိ စစ်ဆေးခြင်း
     if (isCrd && currentBalance < totalPrice) {
       return alert(`❌ လက်ကျန်ငွေ မလုံလောက်ပါ။\n\nကျသင့်ငွေ: ${totalPrice} Ks\nသင့်လက်ကျန်ငွေ: ${currentBalance} Ks\n\nကျေးဇူးပြု၍ Admin ထံမှ Balance အရင်ဖြည့်သွင်းပေးပါခင်ဗျာ/ရှင်။`);
     }
@@ -136,6 +134,7 @@ export default function App() {
     };
 
     try {
+      // 🟢 Balance နှုတ်ခြင်း (CRD ဖြင့်ဝယ်ပါက)
       if (isCrd) {
         const newBalance = currentBalance - totalPrice;
         const profileRef = doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data');
@@ -143,19 +142,7 @@ export default function App() {
         await updateDoc(profileRef, { balance: newBalance });
         await updateDoc(memberRef, { balance: newBalance });
         
-        // Purchase Log သွင်းခြင်း
-        await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'logs'), {
-          type: 'Purchase',
-          targetUser: profile.name,
-          targetGmail: profile.email,
-          amount: -totalPrice,
-          oldBalance: currentBalance,
-          newBalance: newBalance,
-          detail: orderData.product,
-          date: orderData.date,
-          timestamp: Date.now()
-        });
-        
+        // ဘယ်လောက်ဖြတ်သွားပြီး ဘယ်လောက်ကျန်လဲဆိုတာ Alert ပြခြင်း
         alert(`✅ CRD ဖြင့် အော်ဒါတင်ခြင်း အောင်မြင်ပါသည်။\n\n💸 ဖြတ်တောက်ငွေ: -${totalPrice} Ks\n💰 လက်ကျန်ငွေ: ${newBalance} Ks`);
       }
 
@@ -348,16 +335,9 @@ export default function App() {
         )}
 
         {view === 'admin_dash' && profile?.role === 'admin' && (
-          <div className="p-6 pb-40 flex-1 flex flex-col"><MainHeader /><div className="flex justify-between items-center my-8"><h2 className="text-2xl font-black uppercase tracking-tighter">Management</h2>
-          <div className="flex bg-[#112240] p-1 rounded-2xl border border-blue-900/20">
-            <button onClick={() => setAdminTab('orders')} className={`px-4 py-2 rounded-xl text-[10px] font-black transition-all ${adminTab === 'orders' ? 'bg-blue-600 shadow-lg' : 'text-slate-500'}`}>ORDERS</button>
-            <button onClick={() => setAdminTab('members')} className={`px-4 py-2 rounded-xl text-[10px] font-black transition-all ${adminTab === 'members' ? 'bg-blue-600 shadow-lg' : 'text-slate-500'}`}>USERS</button>
-            <button onClick={() => setAdminTab('logs')} className={`px-4 py-2 rounded-xl text-[10px] font-black transition-all ${adminTab === 'logs' ? 'bg-blue-600 shadow-lg' : 'text-slate-500'}`}>LOGS</button>
-          </div>
-          </div>
+          <div className="p-6 pb-40 flex-1 flex flex-col"><MainHeader /><div className="flex justify-between items-center my-8"><h2 className="text-2xl font-black uppercase tracking-tighter">Management</h2><div className="flex bg-[#112240] p-1 rounded-2xl border border-blue-900/20"><button onClick={() => setAdminTab('orders')} className={`px-5 py-2 rounded-xl text-[10px] font-black transition-all ${adminTab === 'orders' ? 'bg-blue-600 shadow-lg' : 'text-slate-500'}`}>ORDERS</button><button onClick={() => setAdminTab('members')} className={`px-5 py-2 rounded-xl text-[10px] font-black transition-all ${adminTab === 'members' ? 'bg-blue-600 shadow-lg' : 'text-slate-500'}`}>USERS</button></div></div>
             <div className="space-y-4 overflow-y-auto no-scrollbar max-w-4xl mx-auto w-full">
-              {/* ORDERS TAB */}
-              {adminTab === 'orders' && allOrders.map(o => (
+              {adminTab === 'orders' ? allOrders.map(o => (
                 <div key={o.id} className="bg-[#112240] p-6 rounded-[2.5rem] border border-blue-900/30 shadow-xl">
                   <div className="flex justify-between items-start mb-4"><div><h4 className="font-black text-sm uppercase text-white">{o.product}</h4><p className="text-blue-500 text-[10px] font-black uppercase tracking-widest">{o.plan} • {o.price} Ks</p></div><span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase ${o.status === 'Completed' ? 'bg-green-500/10 text-green-500' : 'bg-yellow-500/10 text-yellow-500'}`}>{o.status}</span></div>
                   <div className="bg-black/20 p-5 rounded-2xl text-[12px] text-slate-300 mb-4 whitespace-pre-wrap border border-blue-900/10 font-medium"><b>Customer:</b> {o.userName} ({o.userGmail})<br/><b>Payment:</b> <span className={o.paymentMethod === 'Credit (CRD)' ? 'text-blue-400' : 'text-slate-300'}>{o.paymentMethod || 'Manual'}</span><br/><br/><b>Details:</b><br/>{o.contact}</div>
@@ -365,14 +345,16 @@ export default function App() {
                   {o.status === 'Pending' && (
                     <div className="flex flex-col gap-3">
                       <textarea rows="3" placeholder="Deliver details (Gmail, Pass, Codes, etc)..." className="w-full bg-[#0a192f] p-4 rounded-2xl text-[11px] outline-none border border-blue-900/30 focus:border-blue-500 text-white" value={deliveryInputs[o.id] || ''} onChange={e => setDeliveryInputs({...deliveryInputs, [o.id]: e.target.value})} />
-                      <button onClick={() => updateOrderStatus(o.id, 'Completed', deliveryInputs[o.id])} className="w-full bg-blue-600 py-4 rounded-xl font-black text-[11px] uppercase shadow-lg active:scale-95 transition-all hover:bg-blue-500">CONFIRM & SEND RESULT</button>
+                      <button 
+  onClick={() => updateOrderStatus(o.id, 'Completed', deliveryInputs[o.id])} 
+  className="w-full bg-blue-600 py-4 rounded-xl font-black text-[11px] uppercase shadow-lg active:scale-95 transition-all hover:bg-blue-500"
+>
+  CONFIRM & SEND RESULT
+</button>
                     </div>
                   )}
                 </div>
-              ))}
-
-              {/* USERS TAB */}
-              {adminTab === 'members' && <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">{allMembers.map(m => (
+              )) : <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">{allMembers.map(m => (
                 <div key={m.uid} className="bg-[#112240] p-4 rounded-3xl flex flex-col md:flex-row items-start md:items-center justify-between border border-blue-900/10 shadow-lg gap-4">
                   <div className="flex items-center gap-3">
                     <img src={m.photoURL || LOGO_URL} className="w-12 h-12 rounded-xl object-cover" alt="M" />
@@ -382,25 +364,13 @@ export default function App() {
                     </div>
                   </div>
                   <div className="flex gap-2 w-full md:w-auto">
+                    {/* Admin ကနေ Customer ကို Balance ထည့်ပေးရန် ခလုတ် */}
                     <button onClick={async () => {
-                      const amt = prompt(`[${m.name}] သို့ ငွေသွင်းမည့် ပမာဏကို ရိုက်ထည့်ပါ:`);
+                      const amt = prompt(`[${m.name}] အကောင့်သို့ ငွေသွင်းရန် ပမာဏကို ရိုက်ထည့်ပါ (လက်ရှိ: ${m.balance || 0} Ks):`);
                       if(amt && !isNaN(amt)) {
                         const newBal = (m.balance || 0) + parseInt(amt);
                         await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'members', m.uid), { balance: newBal });
                         await updateDoc(doc(db, 'artifacts', appId, 'users', m.uid, 'profile', 'data'), { balance: newBal });
-                        
-                        // Topup Log သွင်းခြင်း
-                        await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'logs'), {
-                          type: 'Topup',
-                          targetUser: m.name,
-                          targetGmail: m.email,
-                          amount: parseInt(amt),
-                          oldBalance: m.balance || 0,
-                          newBalance: newBal,
-                          detail: 'Admin Topup',
-                          date: new Date().toLocaleString('en-GB'),
-                          timestamp: Date.now()
-                        });
                         alert(`အောင်မြင်ပါသည်။ ${m.name} ၏ လက်ကျန်ငွေအသစ်မှာ ${newBal} Ks ဖြစ်ပါသည်။`);
                       }
                     }} className="px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all bg-green-600 text-white shadow-md flex items-center gap-1"><Plus size={12}/> BAL</button>
@@ -410,26 +380,6 @@ export default function App() {
                   </div>
                 </div>
               ))}</div>}
-
-              {/* LOGS TAB */}
-              {adminTab === 'logs' && <div className="space-y-3 w-full">
-                {sysLogs.length === 0 ? <p className="text-center text-slate-500 text-xs mt-10">No logs found.</p> : sysLogs.map(l => (
-                  <div key={l.id} className="bg-[#112240] p-4 rounded-2xl border border-blue-900/10 flex justify-between items-center">
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-md ${l.type === 'Topup' ? 'bg-green-500/20 text-green-400' : 'bg-blue-500/20 text-blue-400'}`}>{l.type}</span>
-                        <span className="text-[10px] text-slate-400">{l.date}</span>
-                      </div>
-                      <p className="text-xs font-bold">{l.targetUser} <span className="text-slate-400 font-normal">({l.targetGmail})</span></p>
-                      <p className="text-[10px] text-slate-500">{l.detail}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className={`text-sm font-black ${l.amount > 0 ? 'text-green-500' : 'text-red-400'}`}>{l.amount > 0 ? '+' : ''}{l.amount} Ks</p>
-                      <p className="text-[9px] text-slate-400 font-bold">Bal: {l.newBalance} Ks</p>
-                    </div>
-                  </div>
-                ))}
-              </div>}
             </div><BottomNav /></div>
         )}
 
@@ -440,6 +390,7 @@ export default function App() {
 
         {view === 'profile' && <div className="p-10 flex flex-col flex-1 items-center justify-center pb-40"><MainHeader /><div className="text-center animate-in fade-in duration-500"><img src={profile?.photoURL || LOGO_URL} className="w-28 h-28 mx-auto rounded-[2.5rem] border-4 border-blue-600/20 mb-6 shadow-2xl object-cover" alt="U" /><h3 className="text-3xl font-black uppercase mb-1 tracking-tighter text-white">{profile?.name}</h3>
         <p className="text-blue-500 font-black uppercase text-[11px] mb-2 tracking-widest">{profile?.tier} Account</p>
+        {/* Profile မှာ လက်ကျန်ငွေပြပေးမယ့် အပိုင်း */}
         <div className="bg-[#112240] border border-blue-900/30 rounded-2xl py-3 px-6 mb-12 inline-block"><p className="text-[10px] text-slate-400 uppercase font-bold tracking-widest mb-1">Current Balance</p><p className="text-xl font-black text-white">{profile?.balance || 0} Ks</p></div>
         <button onClick={() => auth.signOut()} className="flex items-center gap-3 text-red-500 font-black text-sm active:scale-95 transition-all mx-auto hover:text-red-400 px-6 py-3 rounded-2xl bg-red-500/5 border border-red-500/10"><LogOut size={22}/> SIGN OUT ACCOUNT</button></div><BottomNav /></div>}
 
