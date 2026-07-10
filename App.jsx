@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, collection, addDoc, onSnapshot, updateDoc, query, orderBy } from 'firebase/firestore';
-import { ShoppingBag, ArrowLeft, CheckCircle2, Loader2, User, ShieldCheck, LogOut, Send, Save, Layers, Image as ImageIcon, History, Plus, X, Search, ShoppingCart, LogIn, Facebook, Share2, MessageCircle, ChevronRight, Trash2 } from 'lucide-react';
+import { ShoppingBag, ArrowLeft, CheckCircle2, Loader2, User, ShieldCheck, LogOut, Send, Save, Layers, Image as ImageIcon, History, Plus, X, Search, ShoppingCart, LogIn, Facebook, Share2, MessageCircle, ChevronRight, Trash2, Wallet } from 'lucide-react';
 
 // --- (၁) CONFIGURATION ---
 const LOGO_URL = "https://drive.google.com/thumbnail?id=1Lh-nHgyLMSr3rBVe4OGnjEvEspuMokd6&sz=w1000"; 
@@ -52,7 +52,6 @@ export default function App() {
   const [adminTab, setAdminTab] = useState('orders');
   const [deliveryInputs, setDeliveryInputs] = useState({});
   const [selectedPayment, setSelectedPayment] = useState(null);
-  const [techImages, setTechImages] = useState([null, null, null]);
   const [payImg, setPayImg] = useState("");
   const [searchTerm, setSearchTerm] = useState('');
   const [cart, setCart] = useState([]);
@@ -64,10 +63,13 @@ export default function App() {
     const memberRef = doc(db, 'artifacts', appId, 'public', 'data', 'members', u.uid);
     try {
       const docSnap = await getDoc(docRef);
+      // အသစ်ထည့်လိုက်သော အချက်: Balance ကို ၀ ဖြင့် အစပြုပေးမည်
       let pData = docSnap.exists() ? docSnap.data() : {
         name: u.displayName, email: u.email, tier: ADMIN_EMAILS.includes(u.email) ? 'Admin' : 'Standard',
-        role: ADMIN_EMAILS.includes(u.email) ? 'admin' : 'user', uid: u.uid, photoURL: u.photoURL
+        role: ADMIN_EMAILS.includes(u.email) ? 'admin' : 'user', uid: u.uid, photoURL: u.photoURL, balance: 0
       };
+      if (pData.balance === undefined) pData.balance = 0; // အဟောင်းတွေမှာ balance မရှိရင် 0 သတ်မှတ်မယ်
+
       await setDoc(docRef, pData, { merge: true });
       await setDoc(memberRef, pData, { merge: true });
       setProfile(pData);
@@ -89,18 +91,30 @@ export default function App() {
       const docs = sn.docs.map(d => ({ id: d.id, ...d.data() }));
       setAllOrders(docs); setMyOrders(docs.filter(o => o.userId === user.uid));
     });
+    
+    // User ရဲ့ Balance ပြောင်းလဲမှုကို Real-time ဖတ်ရန်
+    const userRef = doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data');
+    onSnapshot(userRef, (doc) => { if(doc.exists()) setProfile(doc.data()); });
+
     if (profile?.role === 'admin') {
       onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'members'), (sn) => setAllMembers(sn.docs.map(d => ({ id: d.id, ...d.data() }))));
     }
-  }, [user, profile]);
+  }, [user, profile?.role]);
 
   const handleOrder = async () => {
     if (!user) return setView('welcome');
     
-    // CRD System Logic: If CRD is selected, Screenshot (payImg) is not required
     const isCrd = selectedPayment?.id === 'crd';
+    const totalPrice = cart.reduce((s, i) => s + parseInt(getDisplayPrice(i)), 0);
+    const currentBalance = profile?.balance || 0;
+
     if (cart.length === 0 || !editContact.trim() || (!payImg && !isCrd) || !selectedPayment) {
       return alert("အချက်အလက်များ ပြည့်စုံစွာ ဖြည့်ပေးပါဗျ။");
+    }
+
+    // 🔴 ပိုက်ဆံလုံလောက်မှု ရှိ/မရှိ စစ်ဆေးခြင်း
+    if (isCrd && currentBalance < totalPrice) {
+      return alert(`❌ လက်ကျန်ငွေ မလုံလောက်ပါ။\n\nကျသင့်ငွေ: ${totalPrice} Ks\nသင့်လက်ကျန်ငွေ: ${currentBalance} Ks\n\nကျေးဇူးပြု၍ Admin ထံမှ Balance အရင်ဖြည့်သွင်းပေးပါခင်ဗျာ/ရှင်။`);
     }
 
     setLoading(true);
@@ -111,15 +125,27 @@ export default function App() {
       userName: profile?.name,
       product: cart.map(i => getPProp(i, 'Name')).join(", "),
       plan: cart.map(i => getPProp(i, 'Plan')).join(", "),
-      price: cart.reduce((s, i) => s + parseInt(getDisplayPrice(i)), 0),
+      price: totalPrice,
       contact: editContact,
       paymentMethod: selectedPayment.name,
-      payImage: isCrd ? "" : payImg, // If CRD, save empty string for image
+      payImage: isCrd ? "" : payImg, 
       items: cart.map(i => ({ Name: getPProp(i, 'Name'), Plan: getPProp(i, 'Plan') })),
       date: new Date().toLocaleString('en-GB')
     };
 
     try {
+      // 🟢 Balance နှုတ်ခြင်း (CRD ဖြင့်ဝယ်ပါက)
+      if (isCrd) {
+        const newBalance = currentBalance - totalPrice;
+        const profileRef = doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data');
+        const memberRef = doc(db, 'artifacts', appId, 'public', 'data', 'members', user.uid);
+        await updateDoc(profileRef, { balance: newBalance });
+        await updateDoc(memberRef, { balance: newBalance });
+        
+        // ဘယ်လောက်ဖြတ်သွားပြီး ဘယ်လောက်ကျန်လဲဆိုတာ Alert ပြခြင်း
+        alert(`✅ CRD ဖြင့် အော်ဒါတင်ခြင်း အောင်မြင်ပါသည်။\n\n💸 ဖြတ်တောက်ငွေ: -${totalPrice} Ks\n💰 လက်ကျန်ငွေ: ${newBalance} Ks`);
+      }
+
       const docRef = await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'orders'), { 
         ...orderData, 
         status: 'Pending', 
@@ -282,8 +308,7 @@ export default function App() {
             <textarea rows="4" placeholder="ID, Password, Phone Number အစရှိသည့် လိုအပ်သော အချက်အလက်များ အကုန်ဒီမှာရေးပေးပါ..." className="w-full bg-[#112240] p-5 rounded-2xl mb-8 text-sm outline-none border border-blue-900/20 focus:border-blue-500 transition-all shadow-inner" value={editContact} onChange={e => setEditContact(e.target.value)} />
             <div className="mb-8"><p className="text-[10px] font-black text-slate-500 uppercase mb-3 ml-2 tracking-widest">Payment Method</p><div className="grid grid-cols-5 md:grid-cols-5 gap-2">
               {[ 
-                // CRD Payment Method added here
-                { id: 'crd', name: 'Credit (CRD)', num: 'Pay with Balance', user: profile?.name || 'Account Balance', img: 'https://cdn-icons-png.flaticon.com/512/2830/2830284.png' }, 
+                { id: 'crd', name: 'Credit (CRD)', num: 'Pay with Balance', user: `Balance: ${profile?.balance || 0} Ks`, img: 'https://cdn-icons-png.flaticon.com/512/2830/2830284.png' }, 
                 { id: 'kpay', name: 'KBZ Pay', num: '09 402529376', user: 'Daw Khin Mar Wai', img: 'https://i.ibb.co/Jj3SFW3C/kpay-logo.png' }, 
                 { id: 'visa', name: 'VISA', num: '4052 6403 0832 7313', user: 'U Htet Wai Soe', img: 'https://i.ibb.co/HLR2TxPr/Untitled-1.png' }, 
                 { id: 'wave', name: 'Wave Money', num: '09 793655312', user: 'U Sai Khun Thet Hein', img: 'https://i.ibb.co/23yq59BX/wave-pay.png' }, 
@@ -291,9 +316,8 @@ export default function App() {
               ].map(m => (
                 <button key={m.id} onClick={() => setSelectedPayment(m)} className={`p-2 rounded-xl border bg-white aspect-square flex flex-col items-center justify-center transition-all ${selectedPayment?.id === m.id ? 'border-blue-500 border-4 scale-95' : 'border-transparent'}`}><img src={m.img} className="w-full h-auto max-h-8 object-contain mb-1" alt={m.name}/><span className="text-[8px] font-bold text-slate-800 leading-tight">{m.name === 'Credit (CRD)' ? 'CRD' : ''}</span></button>
               ))}
-            </div>{selectedPayment && <div className="mt-4 p-5 bg-blue-500/10 rounded-[2rem] border border-blue-500/20 animate-in zoom-in duration-300"><p className="text-[10px] font-black text-blue-400 uppercase">{selectedPayment.name}</p><h4 className="text-xl font-black text-white">{selectedPayment.num}</h4><p className="text-[11px] text-slate-400 font-bold">Name: {selectedPayment.user}</p></div>}</div>
+            </div>{selectedPayment && <div className="mt-4 p-5 bg-blue-500/10 rounded-[2rem] border border-blue-500/20 animate-in zoom-in duration-300"><p className="text-[10px] font-black text-blue-400 uppercase">{selectedPayment.name}</p><h4 className="text-xl font-black text-white">{selectedPayment.num}</h4><p className="text-[11px] text-slate-400 font-bold">{selectedPayment.id === 'crd' ? selectedPayment.user : `Name: ${selectedPayment.user}`}</p></div>}</div>
             
-            {/* If CRD is selected, hide the Screenshot Upload box */}
             {selectedPayment?.id !== 'crd' && (
               <div className="mb-10"><p className="text-[10px] font-black text-slate-500 uppercase mb-3 ml-2 tracking-widest">Payment Receipt</p><div className="w-full aspect-video bg-[#112240] rounded-[2rem] border-2 border-dashed border-blue-900/30 flex items-center justify-center relative overflow-hidden group">
                 {payImg ? <div className="w-full h-full relative"><img src={payImg} className="w-full h-full object-contain" alt="P"/><button onClick={()=>setPayImg("")} className="absolute top-4 right-4 bg-red-500 p-2 rounded-full shadow-lg active:scale-90 transition-all"><X size={16}/></button></div> : 
@@ -316,7 +340,6 @@ export default function App() {
               {adminTab === 'orders' ? allOrders.map(o => (
                 <div key={o.id} className="bg-[#112240] p-6 rounded-[2.5rem] border border-blue-900/30 shadow-xl">
                   <div className="flex justify-between items-start mb-4"><div><h4 className="font-black text-sm uppercase text-white">{o.product}</h4><p className="text-blue-500 text-[10px] font-black uppercase tracking-widest">{o.plan} • {o.price} Ks</p></div><span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase ${o.status === 'Completed' ? 'bg-green-500/10 text-green-500' : 'bg-yellow-500/10 text-yellow-500'}`}>{o.status}</span></div>
-                  {/* Payment Method ကို Admin အလွယ်တကူ မြင်နိုင်ရန် ပေါင်းထည့်ထားသည် */}
                   <div className="bg-black/20 p-5 rounded-2xl text-[12px] text-slate-300 mb-4 whitespace-pre-wrap border border-blue-900/10 font-medium"><b>Customer:</b> {o.userName} ({o.userGmail})<br/><b>Payment:</b> <span className={o.paymentMethod === 'Credit (CRD)' ? 'text-blue-400' : 'text-slate-300'}>{o.paymentMethod || 'Manual'}</span><br/><br/><b>Details:</b><br/>{o.contact}</div>
                   <div className="flex gap-2 mb-4">{o.payImage && <a href={o.payImage} target="_blank" rel="noreferrer" className="flex-1 bg-green-600/10 p-2 rounded-xl text-center text-[9px] font-black text-green-500 border border-green-500/20 hover:bg-green-600/20 transition-all">View Receipt</a>}{o.techImages?.map((img, i) => <a key={i} href={img} target="_blank" rel="noreferrer" className="w-12 h-12 bg-blue-600/10 rounded-xl overflow-hidden shrink-0 border border-blue-500/20 hover:scale-105 transition-transform"><img src={img} className="w-full h-full object-cover" alt="T" /></a>)}</div>
                   {o.status === 'Pending' && (
@@ -332,7 +355,30 @@ export default function App() {
                   )}
                 </div>
               )) : <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">{allMembers.map(m => (
-                <div key={m.uid} className="bg-[#112240] p-4 rounded-3xl flex items-center justify-between border border-blue-900/10 shadow-lg"><div className="flex items-center gap-3"><img src={m.photoURL || LOGO_URL} className="w-12 h-12 rounded-xl object-cover" alt="M" /><div><p className="text-[12px] font-black text-white">{m.name}</p><p className="text-[9px] text-blue-500 font-bold uppercase tracking-widest">{m.tier}</p></div></div><div className="flex gap-1 bg-[#0a192f] p-1 rounded-xl">{['Standard', 'VIP', 'Reseller'].map(t => (<button key={t} onClick={async () => { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'members', m.uid), { tier: t }); await updateDoc(doc(db, 'artifacts', appId, 'users', m.uid, 'profile', 'data'), { tier: t }); alert("Tier Updated Successfully!"); }} className={`px-2 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all ${m.tier === t ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500'}`}>{t[0]}</button>))}</div></div>
+                <div key={m.uid} className="bg-[#112240] p-4 rounded-3xl flex flex-col md:flex-row items-start md:items-center justify-between border border-blue-900/10 shadow-lg gap-4">
+                  <div className="flex items-center gap-3">
+                    <img src={m.photoURL || LOGO_URL} className="w-12 h-12 rounded-xl object-cover" alt="M" />
+                    <div>
+                      <p className="text-[12px] font-black text-white">{m.name}</p>
+                      <p className="text-[9px] text-blue-500 font-bold uppercase tracking-widest">{m.tier} • BAL: {m.balance || 0} Ks</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2 w-full md:w-auto">
+                    {/* Admin ကနေ Customer ကို Balance ထည့်ပေးရန် ခလုတ် */}
+                    <button onClick={async () => {
+                      const amt = prompt(`[${m.name}] အကောင့်သို့ ငွေသွင်းရန် ပမာဏကို ရိုက်ထည့်ပါ (လက်ရှိ: ${m.balance || 0} Ks):`);
+                      if(amt && !isNaN(amt)) {
+                        const newBal = (m.balance || 0) + parseInt(amt);
+                        await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'members', m.uid), { balance: newBal });
+                        await updateDoc(doc(db, 'artifacts', appId, 'users', m.uid, 'profile', 'data'), { balance: newBal });
+                        alert(`အောင်မြင်ပါသည်။ ${m.name} ၏ လက်ကျန်ငွေအသစ်မှာ ${newBal} Ks ဖြစ်ပါသည်။`);
+                      }
+                    }} className="px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all bg-green-600 text-white shadow-md flex items-center gap-1"><Plus size={12}/> BAL</button>
+                    <div className="flex gap-1 bg-[#0a192f] p-1 rounded-xl">
+                      {['Standard', 'VIP', 'Reseller'].map(t => (<button key={t} onClick={async () => { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'members', m.uid), { tier: t }); await updateDoc(doc(db, 'artifacts', appId, 'users', m.uid, 'profile', 'data'), { tier: t }); alert("Tier Updated Successfully!"); }} className={`px-2 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all ${m.tier === t ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500'}`}>{t[0]}</button>))}
+                    </div>
+                  </div>
+                </div>
               ))}</div>}
             </div><BottomNav /></div>
         )}
@@ -342,7 +388,11 @@ export default function App() {
 
         {view === 'order_success' && <div className="flex-1 flex flex-col items-center justify-center p-12 text-center animate-in zoom-in duration-500"><CheckCircle2 size={110} className="text-green-500 mb-8 drop-shadow-[0_0_15px_rgba(34,197,94,0.4)]" /><h2 className="text-4xl font-black mb-4 uppercase tracking-tighter">Order Placed!</h2><p className="text-slate-400 text-sm mb-12 uppercase tracking-widest font-bold">ဝယ်ယူမှုအတွက် ကျေးဇူးတင်ပါတယ်ဗျ။</p><button onClick={() => setView('customer_dash')} className="w-full max-w-xs bg-blue-600 py-5 rounded-3xl font-black text-white shadow-2xl active:scale-95 transition-all uppercase tracking-widest">View History</button></div>}
 
-        {view === 'profile' && <div className="p-10 flex flex-col flex-1 items-center justify-center pb-40"><MainHeader /><div className="text-center animate-in fade-in duration-500"><img src={profile?.photoURL || LOGO_URL} className="w-28 h-28 mx-auto rounded-[2.5rem] border-4 border-blue-600/20 mb-6 shadow-2xl object-cover" alt="U" /><h3 className="text-3xl font-black uppercase mb-1 tracking-tighter text-white">{profile?.name}</h3><p className="text-blue-500 font-black uppercase text-[11px] mb-14 tracking-widest">{profile?.tier} Account</p><button onClick={() => auth.signOut()} className="flex items-center gap-3 text-red-500 font-black text-sm active:scale-95 transition-all mx-auto hover:text-red-400 px-6 py-3 rounded-2xl bg-red-500/5 border border-red-500/10"><LogOut size={22}/> SIGN OUT ACCOUNT</button></div><BottomNav /></div>}
+        {view === 'profile' && <div className="p-10 flex flex-col flex-1 items-center justify-center pb-40"><MainHeader /><div className="text-center animate-in fade-in duration-500"><img src={profile?.photoURL || LOGO_URL} className="w-28 h-28 mx-auto rounded-[2.5rem] border-4 border-blue-600/20 mb-6 shadow-2xl object-cover" alt="U" /><h3 className="text-3xl font-black uppercase mb-1 tracking-tighter text-white">{profile?.name}</h3>
+        <p className="text-blue-500 font-black uppercase text-[11px] mb-2 tracking-widest">{profile?.tier} Account</p>
+        {/* Profile မှာ လက်ကျန်ငွေပြပေးမယ့် အပိုင်း */}
+        <div className="bg-[#112240] border border-blue-900/30 rounded-2xl py-3 px-6 mb-12 inline-block"><p className="text-[10px] text-slate-400 uppercase font-bold tracking-widest mb-1">Current Balance</p><p className="text-xl font-black text-white">{profile?.balance || 0} Ks</p></div>
+        <button onClick={() => auth.signOut()} className="flex items-center gap-3 text-red-500 font-black text-sm active:scale-95 transition-all mx-auto hover:text-red-400 px-6 py-3 rounded-2xl bg-red-500/5 border border-red-500/10"><LogOut size={22}/> SIGN OUT ACCOUNT</button></div><BottomNav /></div>}
 
       </div>
     </div>
