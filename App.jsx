@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { initializeApp } from 'firebase/app';
-import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, setPersistence, browserLocalPersistence } from 'firebase/auth';
+import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, collection, addDoc, onSnapshot, updateDoc, query, orderBy } from 'firebase/firestore';
 import { ShoppingBag, ArrowLeft, CheckCircle2, Loader2, User, ShieldCheck, LogOut, Send, Save, Layers, Image as ImageIcon, History, Plus, X, Search, ShoppingCart, LogIn, Facebook, Share2, MessageCircle, ChevronRight, Trash2 } from 'lucide-react';
 
@@ -94,14 +94,16 @@ export default function App() {
     }
   }, [user, profile]);
 
-// --- (၁) အော်ဒါအသစ် တင်သည့် Function ---
   const handleOrder = async () => {
     if (!user) return setView('welcome');
-    if (cart.length === 0 || !editContact.trim() || !payImg || !selectedPayment) {
+    
+    // CRD System Logic: If CRD is selected, Screenshot (payImg) is not required
+    const isCrd = selectedPayment?.id === 'crd';
+    if (cart.length === 0 || !editContact.trim() || (!payImg && !isCrd) || !selectedPayment) {
       return alert("အချက်အလက်များ ပြည့်စုံစွာ ဖြည့်ပေးပါဗျ။");
     }
 
-    setLoading(true); // တစ်ခါပဲ သုံးရပါမယ်
+    setLoading(true);
 
     const orderData = {
       userId: user.uid,
@@ -112,20 +114,18 @@ export default function App() {
       price: cart.reduce((s, i) => s + parseInt(getDisplayPrice(i)), 0),
       contact: editContact,
       paymentMethod: selectedPayment.name,
-      payImage: payImg,
+      payImage: isCrd ? "" : payImg, // If CRD, save empty string for image
       items: cart.map(i => ({ Name: getPProp(i, 'Name'), Plan: getPProp(i, 'Plan') })),
       date: new Date().toLocaleString('en-GB')
     };
 
     try {
-      // ၁။ Firestore ထဲမှာ သိမ်းပြီး ID ယူမယ်
       const docRef = await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'orders'), { 
         ...orderData, 
         status: 'Pending', 
         timestamp: Date.now() 
       });
 
-      // ၂။ Google Script ဆီကို orderId ပါ ထည့်ပို့မယ် (Column O အတွက်)
       await fetch(SCRIPT_URL, { 
         method: "POST", 
         mode: "no-cors", 
@@ -148,14 +148,12 @@ export default function App() {
     }
   };
 
-  // --- (၂) အော်ဒါပိတ်ပြီး Sheet ပါ Update လုပ်သည့် Function (handleOrder ရဲ့ အပြင်မှာ ထားပါ) ---
   const updateOrderStatus = async (orderId, newStatus, resultData = "") => {
     try {
       setLoading(true);
       const orderRef = doc(db, 'artifacts', appId, 'public', 'data', 'orders', orderId);
       await updateDoc(orderRef, { status: newStatus, result: resultData });
 
-      // Status က Completed ဖြစ်ရင် Google Sheet ရဲ့ Column N မှာ စာသွားရိုက်မယ်
       if (newStatus === 'Completed') {
         await fetch(SCRIPT_URL, {
           method: "POST",
@@ -163,7 +161,7 @@ export default function App() {
           body: JSON.stringify({
             type: "update_order",
             orderId: orderId,
-            resultData: resultData // Admin textarea ထဲမှာ ရိုက်လိုက်တဲ့စာ
+            resultData: resultData
           })
         });
       }
@@ -175,7 +173,6 @@ export default function App() {
     }
   };
 
-  // စျေးနှုန်းတွက်သည့် Function
   const getDisplayPrice = (plan) => {
     const tier = profile?.tier || 'Standard';
     return getPProp(plan, `Price_${tier}`) || getPProp(plan, 'Price') || 0;
@@ -283,20 +280,32 @@ export default function App() {
           <div className="p-6 pb-40 overflow-y-auto no-scrollbar"><MainHeader /><button onClick={() => setView('cart_view')} className="mt-6 mb-6 bg-[#112240] p-2 rounded-xl border border-blue-900/20"><ArrowLeft size={20}/></button>
             <div className="max-w-xl mx-auto"><div className="bg-[#112240] p-6 rounded-[2.5rem] border border-blue-900/30 text-center mb-8"><h3 className="text-lg font-black mb-1 uppercase tracking-tighter">Total Checkout</h3><p className="text-blue-500 font-black text-3xl">{cart.reduce((s,i)=>s+parseInt(getDisplayPrice(i)),0)} Ks</p></div>
             <textarea rows="4" placeholder="ID, Password, Phone Number အစရှိသည့် လိုအပ်သော အချက်အလက်များ အကုန်ဒီမှာရေးပေးပါ..." className="w-full bg-[#112240] p-5 rounded-2xl mb-8 text-sm outline-none border border-blue-900/20 focus:border-blue-500 transition-all shadow-inner" value={editContact} onChange={e => setEditContact(e.target.value)} />
-            <div className="mb-8"><p className="text-[10px] font-black text-slate-500 uppercase mb-3 ml-2 tracking-widest">Payment Method</p><div className="grid grid-cols-4 gap-2">
-              {[ { id: 'kpay', name: 'KBZ Pay', num: '09 402529376', user: 'Daw Khin Mar Wai', img: 'https://i.ibb.co/Jj3SFW3C/kpay-logo.png' }, { id: 'visa', name: 'VISA', num: '4052 6403 0832 7313', user: 'U Htet Wai Soe', img: 'https://i.ibb.co/HLR2TxPr/Untitled-1.png' }, { id: 'wave', name: 'Wave Money', num: '09 793655312', user: 'U Sai Khun Thet Hein', img: 'https://i.ibb.co/23yq59BX/wave-pay.png' }, { id: 'ayapay', name: 'UAB Pay', num: '09 2021942', user: 'U Htet Wai Soe', img: 'https://i.ibb.co/GQyyTxh2/uabpay.png' } ].map(m => (
-                <button key={m.id} onClick={() => setSelectedPayment(m)} className={`p-2 rounded-xl border bg-white aspect-square flex items-center justify-center transition-all ${selectedPayment?.id === m.id ? 'border-blue-500 border-4 scale-95' : 'border-transparent'}`}><img src={m.img} className="w-full h-auto max-h-10 object-contain" alt={m.name}/></button>
+            <div className="mb-8"><p className="text-[10px] font-black text-slate-500 uppercase mb-3 ml-2 tracking-widest">Payment Method</p><div className="grid grid-cols-5 md:grid-cols-5 gap-2">
+              {[ 
+                // CRD Payment Method added here
+                { id: 'crd', name: 'Credit (CRD)', num: 'Pay with Balance', user: profile?.name || 'Account Balance', img: 'https://cdn-icons-png.flaticon.com/512/2830/2830284.png' }, 
+                { id: 'kpay', name: 'KBZ Pay', num: '09 402529376', user: 'Daw Khin Mar Wai', img: 'https://i.ibb.co/Jj3SFW3C/kpay-logo.png' }, 
+                { id: 'visa', name: 'VISA', num: '4052 6403 0832 7313', user: 'U Htet Wai Soe', img: 'https://i.ibb.co/HLR2TxPr/Untitled-1.png' }, 
+                { id: 'wave', name: 'Wave Money', num: '09 793655312', user: 'U Sai Khun Thet Hein', img: 'https://i.ibb.co/23yq59BX/wave-pay.png' }, 
+                { id: 'ayapay', name: 'UAB Pay', num: '09 2021942', user: 'U Htet Wai Soe', img: 'https://i.ibb.co/GQyyTxh2/uabpay.png' } 
+              ].map(m => (
+                <button key={m.id} onClick={() => setSelectedPayment(m)} className={`p-2 rounded-xl border bg-white aspect-square flex flex-col items-center justify-center transition-all ${selectedPayment?.id === m.id ? 'border-blue-500 border-4 scale-95' : 'border-transparent'}`}><img src={m.img} className="w-full h-auto max-h-8 object-contain mb-1" alt={m.name}/><span className="text-[8px] font-bold text-slate-800 leading-tight">{m.name === 'Credit (CRD)' ? 'CRD' : ''}</span></button>
               ))}
             </div>{selectedPayment && <div className="mt-4 p-5 bg-blue-500/10 rounded-[2rem] border border-blue-500/20 animate-in zoom-in duration-300"><p className="text-[10px] font-black text-blue-400 uppercase">{selectedPayment.name}</p><h4 className="text-xl font-black text-white">{selectedPayment.num}</h4><p className="text-[11px] text-slate-400 font-bold">Name: {selectedPayment.user}</p></div>}</div>
-            <div className="mb-10"><p className="text-[10px] font-black text-slate-500 uppercase mb-3 ml-2 tracking-widest">Payment Receipt</p><div className="w-full aspect-video bg-[#112240] rounded-[2rem] border-2 border-dashed border-blue-900/30 flex items-center justify-center relative overflow-hidden group">
-              {payImg ? <div className="w-full h-full relative"><img src={payImg} className="w-full h-full object-contain" alt="P"/><button onClick={()=>setPayImg("")} className="absolute top-4 right-4 bg-red-500 p-2 rounded-full shadow-lg active:scale-90 transition-all"><X size={16}/></button></div> : 
-              <label className="cursor-pointer w-full h-full flex flex-col items-center justify-center text-blue-500 group-hover:bg-blue-500/5 transition-colors"><ImageIcon size={32}/><span className="text-[10px] font-black mt-2 uppercase tracking-widest">Upload Screenshot</span><input type="file" className="hidden" onChange={async e => {
-                setLoading(true); const fd = new FormData(); fd.append("image", e.target.files[0]);
-                const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, { method: "POST", body: fd });
-                const d = await res.json(); if(d.success) setPayImg(d.data.url); setLoading(false);
-              }} /></label>}
-            </div></div>
-            <button onClick={handleOrder} disabled={loading || !payImg || !selectedPayment} className="w-full bg-blue-600 py-5 rounded-2xl font-black text-white shadow-2xl active:scale-95 transition-all flex items-center justify-center gap-3">
+            
+            {/* If CRD is selected, hide the Screenshot Upload box */}
+            {selectedPayment?.id !== 'crd' && (
+              <div className="mb-10"><p className="text-[10px] font-black text-slate-500 uppercase mb-3 ml-2 tracking-widest">Payment Receipt</p><div className="w-full aspect-video bg-[#112240] rounded-[2rem] border-2 border-dashed border-blue-900/30 flex items-center justify-center relative overflow-hidden group">
+                {payImg ? <div className="w-full h-full relative"><img src={payImg} className="w-full h-full object-contain" alt="P"/><button onClick={()=>setPayImg("")} className="absolute top-4 right-4 bg-red-500 p-2 rounded-full shadow-lg active:scale-90 transition-all"><X size={16}/></button></div> : 
+                <label className="cursor-pointer w-full h-full flex flex-col items-center justify-center text-blue-500 group-hover:bg-blue-500/5 transition-colors"><ImageIcon size={32}/><span className="text-[10px] font-black mt-2 uppercase tracking-widest">Upload Screenshot</span><input type="file" className="hidden" onChange={async e => {
+                  setLoading(true); const fd = new FormData(); fd.append("image", e.target.files[0]);
+                  const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, { method: "POST", body: fd });
+                  const d = await res.json(); if(d.success) setPayImg(d.data.url); setLoading(false);
+                }} /></label>}
+              </div></div>
+            )}
+
+            <button onClick={handleOrder} disabled={loading || (!payImg && selectedPayment?.id !== 'crd') || !selectedPayment} className="w-full bg-blue-600 py-5 rounded-2xl font-black text-white shadow-2xl active:scale-95 transition-all flex items-center justify-center gap-3">
               {loading ? <Loader2 className="animate-spin" /> : <><Send size={20}/> CONFIRM ORDER</>}
             </button></div><BottomNav /></div>
         )}
@@ -307,11 +316,11 @@ export default function App() {
               {adminTab === 'orders' ? allOrders.map(o => (
                 <div key={o.id} className="bg-[#112240] p-6 rounded-[2.5rem] border border-blue-900/30 shadow-xl">
                   <div className="flex justify-between items-start mb-4"><div><h4 className="font-black text-sm uppercase text-white">{o.product}</h4><p className="text-blue-500 text-[10px] font-black uppercase tracking-widest">{o.plan} • {o.price} Ks</p></div><span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase ${o.status === 'Completed' ? 'bg-green-500/10 text-green-500' : 'bg-yellow-500/10 text-yellow-500'}`}>{o.status}</span></div>
-                  <div className="bg-black/20 p-5 rounded-2xl text-[12px] text-slate-300 mb-4 whitespace-pre-wrap border border-blue-900/10 font-medium"><b>Customer:</b> {o.userName} ({o.userGmail})<br/><br/><b>Details:</b><br/>{o.contact}</div>
+                  {/* Payment Method ကို Admin အလွယ်တကူ မြင်နိုင်ရန် ပေါင်းထည့်ထားသည် */}
+                  <div className="bg-black/20 p-5 rounded-2xl text-[12px] text-slate-300 mb-4 whitespace-pre-wrap border border-blue-900/10 font-medium"><b>Customer:</b> {o.userName} ({o.userGmail})<br/><b>Payment:</b> <span className={o.paymentMethod === 'Credit (CRD)' ? 'text-blue-400' : 'text-slate-300'}>{o.paymentMethod || 'Manual'}</span><br/><br/><b>Details:</b><br/>{o.contact}</div>
                   <div className="flex gap-2 mb-4">{o.payImage && <a href={o.payImage} target="_blank" rel="noreferrer" className="flex-1 bg-green-600/10 p-2 rounded-xl text-center text-[9px] font-black text-green-500 border border-green-500/20 hover:bg-green-600/20 transition-all">View Receipt</a>}{o.techImages?.map((img, i) => <a key={i} href={img} target="_blank" rel="noreferrer" className="w-12 h-12 bg-blue-600/10 rounded-xl overflow-hidden shrink-0 border border-blue-500/20 hover:scale-105 transition-transform"><img src={img} className="w-full h-full object-cover" alt="T" /></a>)}</div>
                   {o.status === 'Pending' && (
                     <div className="flex flex-col gap-3">
-                      {/* အစ်ကိုပြောတဲ့ Enter ခေါက်လို့ရတဲ့ Textarea အကွက် */}
                       <textarea rows="3" placeholder="Deliver details (Gmail, Pass, Codes, etc)..." className="w-full bg-[#0a192f] p-4 rounded-2xl text-[11px] outline-none border border-blue-900/30 focus:border-blue-500 text-white" value={deliveryInputs[o.id] || ''} onChange={e => setDeliveryInputs({...deliveryInputs, [o.id]: e.target.value})} />
                       <button 
   onClick={() => updateOrderStatus(o.id, 'Completed', deliveryInputs[o.id])} 
