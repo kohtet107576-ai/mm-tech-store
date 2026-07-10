@@ -4,7 +4,7 @@ import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged } from
 import { getFirestore, doc, setDoc, getDoc, collection, addDoc, onSnapshot, updateDoc, query, orderBy } from 'firebase/firestore';
 import { ShoppingBag, ArrowLeft, CheckCircle2, Loader2, User, ShieldCheck, LogOut, Send, Save, Image as ImageIcon, History, Plus, X, Search, ShoppingCart, LogIn, Facebook, Share2, MessageCircle, ChevronRight, Trash2, Wallet, FileText } from 'lucide-react';
 
-// --- (၁) CONFIGURATION ---
+// --- CONFIGURATION ---
 const LOGO_URL = "https://drive.google.com/thumbnail?id=1Lh-nHgyLMSr3rBVe4OGnjEvEspuMokd6&sz=w1000"; 
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby538xir03xxxyEFn0Mb_XQC5EqOobCYBYsQWJRJaAHIJOip9tHg_sAeo8Ov8_fAola/exec";
 const IMGBB_API_KEY = "88d3b49cfcf4fa4b1e77ce493aa3172a";
@@ -25,7 +25,7 @@ const db = getFirestore(app);
 const googleProvider = new GoogleAuthProvider();
 const appId = "mm-tech-store";
 
-// --- (၂) UTILS ---
+// --- UTILS ---
 const getPProp = (p, k) => p?.[k] || p?.[k.toLowerCase()] || p?.[k.toUpperCase()] || "";
 const formatImg = (url) => {
   if (!url || typeof url !== 'string') return LOGO_URL;
@@ -51,6 +51,7 @@ export default function App() {
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [editContact, setEditContact] = useState('');
   const [adminTab, setAdminTab] = useState('orders');
+  const [activeMember, setActiveMember] = useState(null);
   const [deliveryInputs, setDeliveryInputs] = useState({});
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [payImg, setPayImg] = useState("");
@@ -58,7 +59,7 @@ export default function App() {
   const [cart, setCart] = useState([]);
   const [isSocialOpen, setIsSocialOpen] = useState(false);
 
-  // --- (၃) CORE LOGIC ---
+  // --- LOGIC ---
   const syncProfile = useCallback(async (u) => {
     const docRef = doc(db, 'artifacts', appId, 'users', u.uid, 'profile', 'data');
     const memberRef = doc(db, 'artifacts', appId, 'public', 'data', 'members', u.uid);
@@ -68,7 +69,7 @@ export default function App() {
         name: u.displayName, email: u.email, tier: ADMIN_EMAILS.includes(u.email) ? 'Admin' : 'Standard',
         role: ADMIN_EMAILS.includes(u.email) ? 'admin' : 'user', uid: u.uid, photoURL: u.photoURL, balance: 0
       };
-      if (pData.balance === undefined) pData.balance = 0; 
+      if (pData.balance === undefined) pData.balance = 0;
       await setDoc(docRef, pData, { merge: true });
       await setDoc(memberRef, pData, { merge: true });
       setProfile(pData);
@@ -85,128 +86,108 @@ export default function App() {
 
   useEffect(() => {
     if (!user) return;
-    const qOrders = query(collection(db, 'artifacts', appId, 'public', 'data', 'orders'), orderBy('timestamp', 'desc'));
-    onSnapshot(qOrders, (sn) => {
+    onSnapshot(query(collection(db, 'artifacts', appId, 'public', 'data', 'orders'), orderBy('timestamp', 'desc')), (sn) => {
       const docs = sn.docs.map(d => ({ id: d.id, ...d.data() }));
       setAllOrders(docs); setMyOrders(docs.filter(o => o.userId === user.uid));
     });
-    const userRef = doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data');
-    onSnapshot(userRef, (doc) => { if(doc.exists()) setProfile(doc.data()); });
-
+    onSnapshot(doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data'), (doc) => { if(doc.exists()) setProfile(doc.data()); });
     if (profile?.role === 'admin') {
       onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'members'), (sn) => setAllMembers(sn.docs.map(d => ({ id: d.id, ...d.data() }))));
       onSnapshot(query(collection(db, 'artifacts', appId, 'public', 'data', 'logs'), orderBy('timestamp', 'desc')), (sn) => setSysLogs(sn.docs.map(d => ({ id: d.id, ...d.data() }))));
     }
   }, [user, profile?.role]);
 
+  const getDisplayPrice = (plan) => {
+    const tier = profile?.tier || 'Standard';
+    return getPProp(plan, `Price_${tier}`) || getPProp(plan, 'Price') || 0;
+  };
+
   const handleOrder = async () => {
     if (!user) return setView('welcome');
     const isCrd = selectedPayment?.id === 'crd';
     const totalPrice = cart.reduce((s, i) => s + parseInt(getDisplayPrice(i)), 0);
-    const currentBalance = profile?.balance || 0;
-    if (cart.length === 0 || !editContact.trim() || (!payImg && !isCrd) || !selectedPayment) return alert("အချက်အလက်များ ပြည့်စုံစွာ ဖြည့်ပေးပါဗျ။");
-    if (isCrd && currentBalance < totalPrice) return alert(`❌ လက်ကျန်ငွေ မလုံလောက်ပါ။\n\nကျသင့်ငွေ: ${totalPrice} Ks\nသင့်လက်ကျန်ငွေ: ${currentBalance} Ks`);
+    if (isCrd && profile.balance < totalPrice) return alert("❌ လက်ကျန်ငွေ မလုံလောက်ပါ။");
+    
     setLoading(true);
     try {
       if (isCrd) {
-        const newBalance = currentBalance - totalPrice;
-        await updateDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data'), { balance: newBalance });
-        await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'members', user.uid), { balance: newBalance });
+        const newBal = profile.balance - totalPrice;
+        await updateDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data'), { balance: newBal });
+        await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'members', user.uid), { balance: newBal });
+        await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'logs'), { type: 'Purchase', targetUser: profile.name, targetGmail: profile.email, amount: -totalPrice, newBalance: newBal, detail: cart.map(i=>i.Name).join(","), date: new Date().toLocaleString(), timestamp: Date.now() });
+        alert(`✅ အောင်မြင်ပါသည်။ \n💸 ဖြတ်တောက်ငွေ: -${totalPrice} Ks\n💰 လက်ကျန်ငွေ: ${newBal} Ks`);
       }
-      const docRef = await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'orders'), { userId: user.uid, userGmail: user.email, userName: profile?.name, product: cart.map(i => getPProp(i, 'Name')).join(", "), plan: cart.map(i => getPProp(i, 'Plan')).join(", "), price: totalPrice, contact: editContact, paymentMethod: selectedPayment.name, payImage: isCrd ? "" : payImg, status: 'Pending', timestamp: Date.now(), date: new Date().toLocaleString('en-GB') });
-      fetch(SCRIPT_URL, { method: "POST", mode: "no-cors", body: JSON.stringify({ type: "new_order", orderId: docRef.id, userName: profile?.name, product: cart.map(i => getPProp(i, 'Name')).join(", "), price: totalPrice, contact: editContact }) });
-      setCart([]); setPayImg(""); setView('order_success');
-    } catch (e) { alert("Error: " + e.message); } finally { setLoading(false); }
+      await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'orders'), { userId: user.uid, userGmail: user.email, userName: profile?.name, product: cart.map(i => getPProp(i, 'Name')).join(", "), plan: cart.map(i => getPProp(i, 'Plan')).join(", "), price: totalPrice, contact: editContact, paymentMethod: selectedPayment.name, payImage: isCrd ? "" : payImg, date: new Date().toLocaleString(), status: 'Pending', timestamp: Date.now() });
+      setCart([]); setView('order_success');
+    } catch(e) { alert(e.message); } finally { setLoading(false); }
   };
 
   const updateOrderStatus = async (orderId, newStatus, resultData = "") => {
     try {
       setLoading(true);
       await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'orders', orderId), { status: newStatus, result: resultData });
-      if (newStatus === 'Completed') {
-        fetch(SCRIPT_URL, { method: "POST", mode: "no-cors", body: JSON.stringify({ type: "update_order", orderId, resultData }) });
-      }
       alert("Updated Successfully!");
     } catch (e) { alert(e.message); } finally { setLoading(false); }
   };
 
-  const getDisplayPrice = (plan) => { const tier = profile?.tier || 'Standard'; return getPProp(plan, `Price_${tier}`) || getPProp(plan, 'Price') || 0; };
-  const groupedProducts = useMemo(() => { const groups = {}; products.forEach(p => { const name = getPProp(p, 'Name'); if (name && name.toLowerCase().includes(searchTerm.toLowerCase())) { if (!selectedCat || getPProp(p, 'Category') === selectedCat) { if (!groups[name]) groups[name] = { name, category: getPProp(p, 'Category'), image: getPProp(p, 'Link'), plans: [] }; groups[name].plans.push(p); } } }); return Object.values(groups); }, [products, searchTerm, selectedCat]);
-
-  // Main Header Component
-  const MainHeader = () => (
-    <div className="flex items-center justify-between p-4 bg-[#0a192f]/95 backdrop-blur-md sticky top-0 z-40 border-b border-blue-900/20">
-      <div className="flex items-center gap-2"><img src={LOGO_URL} className="w-8 h-8 rounded-lg" alt="L" /><h2 className="text-sm font-black text-white uppercase tracking-tighter">MM Tech</h2></div>
-      <div className="flex items-center gap-3">
-        <div className="relative cursor-pointer mr-1" onClick={() => setView('cart_view')}><ShoppingCart size={22} className="text-blue-500" />{cart.length > 0 && <span className="absolute -top-2 -right-2 bg-red-600 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center">{cart.length}</span>}</div>
-        {user ? <img src={profile?.photoURL || LOGO_URL} className="w-8 h-8 rounded-full border border-blue-500/50 cursor-pointer object-cover" onClick={() => setView('profile')} /> : <button onClick={() => setView('welcome')} className="bg-blue-600/20 text-blue-500 px-3 py-1.5 rounded-full text-[9px] font-black">LOGIN</button>}
-      </div>
-    </div>
-  );
-
-  const BottomNav = () => (
-    <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-[#0a192f]/95 p-5 flex justify-around items-center z-50 rounded-t-3xl border-t border-blue-900/10 shadow-2xl">
-      <button onClick={() => setView('home')} className={view === 'home' ? 'text-blue-500' : 'text-slate-500'}><ShoppingBag size={24}/></button>
-      <button onClick={() => user ? setView('customer_dash') : setView('welcome')} className={view === 'customer_dash' ? 'text-blue-500' : 'text-slate-500'}><History size={24}/></button>
-      {profile?.role === 'admin' && <button onClick={() => setView('admin_dash')} className={view === 'admin_dash' ? 'text-blue-500' : 'text-slate-500'}><ShieldCheck size={24}/></button>}
-      <button onClick={() => user ? setView('profile') : setView('welcome')} className={view === 'profile' ? 'text-blue-500' : 'text-slate-500'}><User size={24}/></button>
-    </nav>
-  );
+  // --- UI START ---
+  const MainHeader = () => <div className="flex items-center justify-between p-4 bg-[#0a192f] border-b border-blue-900/20"><div className="flex items-center gap-2"><img src={LOGO_URL} className="w-8 h-8 rounded-lg" alt="L"/><h2 className="text-sm font-black text-white">MM Tech</h2></div><div className="relative cursor-pointer" onClick={() => setView('cart_view')}><ShoppingCart size={22} className="text-blue-500" />{cart.length > 0 && <span className="absolute -top-2 -right-2 bg-red-600 text-white w-4 h-4 rounded-full flex items-center justify-center text-[9px]">{cart.length}</span>}</div></div>;
+  const BottomNav = () => <nav className="fixed bottom-0 left-0 w-full bg-[#0a192f] p-5 flex justify-around border-t border-blue-900/10 z-50"><button onClick={() => setView('home')}><ShoppingBag size={24} className={view === 'home' ? 'text-blue-500' : 'text-slate-500'}/></button><button onClick={() => setView('customer_dash')}><History size={24} className={view === 'customer_dash' ? 'text-blue-500' : 'text-slate-500'}/></button>{profile?.role === 'admin' && <button onClick={() => setView('admin_dash')}><ShieldCheck size={24} className={view === 'admin_dash' ? 'text-blue-500' : 'text-slate-500'}/></button>}</nav>;
 
   if (view === 'initializing') return <div className="min-h-screen bg-[#050d1a] flex items-center justify-center"><Loader2 className="animate-spin text-blue-500" size={40}/></div>;
 
   return (
-    <div className="bg-[#050d1a] min-h-screen text-white font-sans flex items-center justify-center p-0 md:p-4">
-      <div className="w-full max-w-md min-h-[100dvh] flex flex-col relative bg-[#0a192f] border-x border-blue-900/10 shadow-2xl">
-        
-        {/* --- VIEW: ADMIN DASHBOARD (အသစ်ပြုပြင်ထားသည်) --- */}
-        {view === 'admin_dash' && profile?.role === 'admin' && (
-          <div className="p-6 pb-40 flex-1 flex flex-col">
-            <MainHeader />
-            <div className="flex justify-between items-center my-8">
-              <h2 className="text-2xl font-black uppercase">Management</h2>
-              <div className="flex bg-[#112240] p-1 rounded-2xl border border-blue-900/20">
-                {['orders', 'members', 'logs'].map(t => <button key={t} onClick={() => setAdminTab(t)} className={`px-4 py-2 rounded-xl text-[10px] font-black ${adminTab === t ? 'bg-blue-600' : 'text-slate-500'}`}>{t.toUpperCase()}</button>)}
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              {adminTab === 'orders' && allOrders.map(o => (
-                <div key={o.id} className="bg-[#112240] p-5 rounded-3xl border border-blue-900/30">
-                  <h4 className="font-black text-sm">{o.product}</h4>
-                  <p className="text-[9px] text-slate-500">ID: {o.id}</p>
-                  <span className={`px-2 py-1 rounded text-[9px] ${o.status === 'Completed' ? 'bg-green-500/20' : o.status === 'Denied' ? 'bg-red-500/20' : 'bg-yellow-500/20'}`}>{o.status}</span>
-                  {o.status === 'Pending' && (
-                    <div className="mt-4 flex flex-col gap-2">
-                      <textarea className="bg-[#0a192f] p-2 text-xs w-full" placeholder="Details..." onChange={e => setDeliveryInputs({...deliveryInputs, [o.id]: e.target.value})} />
-                      <div className="flex gap-2">
-                        <button onClick={() => updateOrderStatus(o.id, 'Completed', deliveryInputs[o.id])} className="flex-1 bg-blue-600 py-2 text-[10px] font-black">CONFIRM</button>
-                        <button onClick={async () => { const r = prompt("Reason:"); if(r) await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'orders', o.id), { status: 'Denied', result: r }); }} className="flex-1 bg-red-600 py-2 text-[10px] font-black">DENY</button>
-                      </div>
+    <div className="bg-[#050d1a] min-h-screen text-white font-sans max-w-lg mx-auto overflow-hidden">
+        {/* မူလ Home UI နေရာဖြစ်ပါသည် */}
+        {view === 'admin_dash' && (
+            <div className="p-6 pb-40">
+                <MainHeader />
+                <div className="flex gap-2 my-6">
+                    <button onClick={() => { setAdminTab('orders'); setActiveMember(null); }} className="bg-blue-600 px-3 py-1 rounded text-[10px]">Orders</button>
+                    <button onClick={() => { setAdminTab('members'); setActiveMember(null); }} className="bg-blue-600 px-3 py-1 rounded text-[10px]">Users</button>
+                    <button onClick={() => { setAdminTab('logs'); setActiveMember(null); }} className="bg-blue-600 px-3 py-1 rounded text-[10px]">Logs</button>
+                </div>
+                {adminTab === 'orders' && allOrders.map(o => (
+                    <div key={o.id} className="bg-[#112240] p-4 rounded-xl mb-2 text-xs">
+                        <p className="text-[10px] text-blue-400">ID: {o.id}</p>
+                        <p>{o.product} - {o.price} Ks</p>
+                        {o.status === 'Pending' && <div className="flex gap-2 mt-2"><button onClick={()=>updateOrderStatus(o.id,'Completed','Done')} className="bg-green-600 px-2 py-1 rounded">Confirm</button><button onClick={()=>updateOrderStatus(o.id,'Denied','ငွေဖြည့်ပေးပါ')} className="bg-red-600 px-2 py-1 rounded">Deny</button></div>}
                     </div>
-                  )}
-                </div>
-              ))}
-
-              {adminTab === 'members' && allMembers.map(m => (
-                <div key={m.uid} onClick={() => alert(`User: ${m.name}\nEmail: ${m.email}\nBalance: ${m.balance} Ks\nUID: ${m.uid}`)} className="p-4 bg-[#112240] rounded-2xl flex justify-between cursor-pointer">
-                  <span>{m.name}</span><span>{m.balance || 0} Ks</span>
-                </div>
-              ))}
-            </div>
-            <BottomNav />
-          </div>
-        )}
-
-        {/* --- ကျန်တဲ့ View တွေ (အစ်ကို့ မူလ UI တွေအတိုင်း) --- */}
-        {view !== 'admin_dash' && (
-            <>
-                {/* Home, Cart, Profile စတာတွေကို ဒီနေရာမှာ အစ်ကို့မူလ code အတိုင်း ဆက်ရေးပါ */}
-                <div className="flex-1 p-6 text-center mt-20">MM Tech Content Here...</div>
+                ))}
+                {adminTab === 'members' && !activeMember && (
+                    <div className="space-y-2">{allMembers.map(m => (
+                        <div key={m.uid} onClick={() => { setActiveMember(m); setAdminTab('member_history'); }} className="bg-[#112240] p-3 rounded flex justify-between text-xs cursor-pointer">
+                            <p>{m.name}</p><p>{m.balance || 0} Ks</p>
+                        </div>
+                    ))}</div>
+                )}
+                {adminTab === 'member_history' && activeMember && (
+                    <div className="bg-[#112240] p-4 rounded text-xs">
+                        <button onClick={() => { setActiveMember(null); setAdminTab('members'); }} className="mb-2 text-blue-400">← Back</button>
+                        <p className="font-bold">{activeMember.name}</p><p className="mb-4">Balance: {activeMember.balance || 0} Ks</p>
+                        <div className="space-y-1">{sysLogs.filter(l => l.targetGmail === activeMember.email).map(l => (
+                            <div key={l.id} className="flex justify-between border-b border-white/10 py-1"><span>{l.detail}</span><span className={l.amount > 0 ? 'text-green-500' : 'text-red-500'}>{l.amount} Ks</span></div>
+                        ))}</div>
+                    </div>
+                )}
+                {adminTab === 'logs' && <div className="space-y-1">{sysLogs.map(l => (
+                    <div key={l.id} className="bg-[#112240] p-2 rounded text-[10px] flex justify-between"><span>{l.targetUser}: {l.detail}</span><span className={l.amount > 0 ? 'text-green-500' : 'text-red-500'}>{l.amount} Ks</span></div>
+                ))}</div>}
                 <BottomNav />
-            </>
+            </div>
         )}
-      </div>
+        {view === 'customer_dash' && (
+            <div className="p-6 pb-40">
+                <MainHeader />
+                <h2 className="text-sm font-bold my-4">My History</h2>
+                {myOrders.map(o => (<div key={o.id} className="bg-[#112240] p-3 rounded mb-2 text-xs">{o.product} - {o.status}</div>))}
+                <h2 className="text-sm font-bold my-4">Balance Logs</h2>
+                {sysLogs.filter(l => l.targetGmail === user?.email).map(l => (
+                    <div key={l.id} className="p-2 bg-[#112240] rounded text-xs mb-1 flex justify-between"><span>{l.detail}</span><span className={l.amount > 0 ? 'text-green-500' : 'text-red-500'}>{l.amount} Ks</span></div>
+                ))}
+                <BottomNav />
+            </div>
+        )}
     </div>
   );
 }
