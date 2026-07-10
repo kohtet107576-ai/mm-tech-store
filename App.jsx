@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, collection, addDoc, onSnapshot, updateDoc, query, orderBy } from 'firebase/firestore';
-import { ShoppingBag, ArrowLeft, CheckCircle2, Loader2, User, ShieldCheck, LogOut, Send, Save, Image as ImageIcon, History, Plus, X, Search, ShoppingCart, LogIn, Facebook, Share2, MessageCircle, ChevronRight, Trash2, FileText } from 'lucide-react';
+import { ShoppingBag, ArrowLeft, CheckCircle2, Loader2, User, ShieldCheck, LogOut, Send, Save, Image as ImageIcon, History, Plus, X, Search, ShoppingCart, LogIn, Facebook, Share2, MessageCircle, ChevronRight, Trash2, Wallet, FileText } from 'lucide-react';
 
 // --- CONFIGURATION ---
 const LOGO_URL = "https://drive.google.com/thumbnail?id=1Lh-nHgyLMSr3rBVe4OGnjEvEspuMokd6&sz=w1000"; 
@@ -51,15 +51,15 @@ export default function App() {
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [editContact, setEditContact] = useState('');
   const [adminTab, setAdminTab] = useState('orders');
+  const [activeMember, setActiveMember] = useState(null);
   const [deliveryInputs, setDeliveryInputs] = useState({});
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [payImg, setPayImg] = useState("");
   const [searchTerm, setSearchTerm] = useState('');
   const [cart, setCart] = useState([]);
   const [isSocialOpen, setIsSocialOpen] = useState(false);
-  const [activeMember, setActiveMember] = useState(null);
 
-  // --- CORE LOGIC ---
+  // --- LOGIC ---
   const syncProfile = useCallback(async (u) => {
     const docRef = doc(db, 'artifacts', appId, 'users', u.uid, 'profile', 'data');
     const memberRef = doc(db, 'artifacts', appId, 'public', 'data', 'members', u.uid);
@@ -86,27 +86,16 @@ export default function App() {
 
   useEffect(() => {
     if (!user) return;
-    const qOrders = query(collection(db, 'artifacts', appId, 'public', 'data', 'orders'), orderBy('timestamp', 'desc'));
-    onSnapshot(qOrders, (sn) => {
+    onSnapshot(query(collection(db, 'artifacts', appId, 'public', 'data', 'orders'), orderBy('timestamp', 'desc')), (sn) => {
       const docs = sn.docs.map(d => ({ id: d.id, ...d.data() }));
       setAllOrders(docs); setMyOrders(docs.filter(o => o.userId === user.uid));
     });
-    
-    const userRef = doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data');
-    onSnapshot(userRef, (doc) => { if(doc.exists()) setProfile(doc.data()); });
-
+    onSnapshot(doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data'), (doc) => { if(doc.exists()) setProfile(doc.data()); });
     if (profile?.role === 'admin') {
       onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'members'), (sn) => setAllMembers(sn.docs.map(d => ({ id: d.id, ...d.data() }))));
-      onSnapshot(query(collection(db, 'artifacts', appId, 'public', 'data', 'logs'), orderBy('timestamp', 'desc')), (sn) => {
-        setSysLogs(sn.docs.map(d => ({ id: d.id, ...d.data() })));
-      });
+      onSnapshot(query(collection(db, 'artifacts', appId, 'public', 'data', 'logs'), orderBy('timestamp', 'desc')), (sn) => setSysLogs(sn.docs.map(d => ({ id: d.id, ...d.data() }))));
     }
   }, [user, profile?.role]);
-
-  const getDisplayPrice = (plan) => {
-    const tier = profile?.tier || 'Standard';
-    return getPProp(plan, `Price_${tier}`) || getPProp(plan, 'Price') || 0;
-  };
 
   const handleOrder = async () => {
     if (!user) return setView('welcome');
@@ -120,71 +109,80 @@ export default function App() {
         const newBal = profile.balance - totalPrice;
         await updateDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data'), { balance: newBal });
         await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'members', user.uid), { balance: newBal });
-        await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'logs'), { type: 'Purchase', targetUser: profile.name, targetGmail: profile.email, amount: -totalPrice, newBalance: newBal, detail: cart.map(i=>i.Name).join(","), date: new Date().toLocaleString(), timestamp: Date.now() });
+        await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'logs'), { type: 'Purchase', targetUser: profile.name, targetGmail: profile.email, amount: -totalPrice, newBalance: newBal, detail: cart.map(i=>i.Name).join(","), date: new Date().toLocaleString('en-GB'), timestamp: Date.now() });
+        alert(`✅ အောင်မြင်ပါသည်။ \n💸 ဖြတ်တောက်ငွေ: -${totalPrice} Ks\n💰 လက်ကျန်ငွေ: ${newBal} Ks`);
       }
-      const orderData = { userId: user.uid, userGmail: user.email, userName: profile?.name, product: cart.map(i => getPProp(i, 'Name')).join(", "), price: totalPrice, contact: editContact, paymentMethod: selectedPayment.name, date: new Date().toLocaleString() };
+      const orderData = { userId: user.uid, userGmail: user.email, userName: profile?.name, product: cart.map(i => getPProp(i, 'Name')).join(", "), plan: cart.map(i => getPProp(i, 'Plan')).join(", "), price: totalPrice, contact: editContact, paymentMethod: selectedPayment.name, payImage: isCrd ? "" : payImg, date: new Date().toLocaleString('en-GB') };
       await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'orders'), { ...orderData, status: 'Pending', timestamp: Date.now() });
       setCart([]); setView('order_success');
     } catch(e) { alert(e.message); } finally { setLoading(false); }
   };
 
-  // --- RENDER PARTS ---
+  const getDisplayPrice = (plan) => {
+    const tier = profile?.tier || 'Standard';
+    return getPProp(plan, `Price_${tier}`) || getPProp(plan, 'Price') || 0;
+  };
+
+  // --- UI ---
   const MainHeader = () => <div className="flex items-center justify-between p-4 bg-[#0a192f]/95 sticky top-0 z-40 border-b border-blue-900/20"><div className="flex items-center gap-2"><img src={LOGO_URL} className="w-8 h-8 rounded-lg" alt="L"/><h2 className="text-sm font-black text-white">MM Tech</h2></div><div className="relative cursor-pointer" onClick={() => setView('cart_view')}><ShoppingCart size={22} className="text-blue-500" />{cart.length > 0 && <span className="absolute -top-2 -right-2 bg-red-600 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center">{cart.length}</span>}</div></div>;
-  
-  const BottomNav = () => <nav className="fixed bottom-0 left-0 w-full bg-[#0a192f] p-5 flex justify-around border-t border-blue-900/10 z-50"><button onClick={() => setView('home')}><ShoppingBag size={24} className={view === 'home' ? 'text-blue-500' : 'text-slate-500'}/></button><button onClick={() => setView('customer_dash')}><History size={24} className={view === 'customer_dash' ? 'text-blue-500' : 'text-slate-500'}/></button>{profile?.role === 'admin' && <button onClick={() => setView('admin_dash')}><ShieldCheck size={24} className={view === 'admin_dash' ? 'text-blue-500' : 'text-slate-500'}/></button>}<button onClick={() => setView('profile')}><User size={24} className={view === 'profile' ? 'text-blue-500' : 'text-slate-500'}/></button></nav>;
+  const BottomNav = () => <nav className="fixed bottom-0 left-0 w-full bg-[#0a192f] p-5 flex justify-around border-t border-blue-900/10 z-50"><button onClick={() => setView('home')}><ShoppingBag size={24} className={view === 'home' ? 'text-blue-500' : 'text-slate-500'}/></button><button onClick={() => setView('customer_dash')}><History size={24} className={view === 'customer_dash' ? 'text-blue-500' : 'text-slate-500'}/></button>{profile?.role === 'admin' && <button onClick={() => setView('admin_dash')}><ShieldCheck size={24} className={view === 'admin_dash' ? 'text-blue-500' : 'text-slate-500'}/></button>}</nav>;
 
   if (view === 'initializing') return <div className="min-h-screen bg-[#050d1a] flex items-center justify-center"><Loader2 className="animate-spin text-blue-500" size={40}/></div>;
 
   return (
-    <div className="bg-[#050d1a] min-h-screen text-white font-sans">
-      <div className="w-full max-w-lg mx-auto bg-[#0a192f] min-h-screen relative">
-        {view === 'home' && <><MainHeader /><div className="p-6">{/* PRODUCTS CONTENT HERE */}<BottomNav /></></>}
-        {view === 'admin_dash' && (
-          <div className="p-6 pb-40">
-            <MainHeader />
+    <div className="bg-[#050d1a] min-h-screen text-white font-sans max-w-lg mx-auto overflow-hidden">
+      {view === 'home' && <><MainHeader /><div className="p-6">{/* PRODUCTS CONTENT HERE */}<BottomNav /></></>}
+      {view === 'admin_dash' && (
+        <div className="p-6 pb-40">
             <div className="flex gap-2 my-6">
-              <button onClick={() => setAdminTab('orders')} className="bg-blue-600 px-4 py-2 rounded-xl text-xs font-bold">Orders</button>
-              <button onClick={() => setAdminTab('members')} className="bg-blue-600 px-4 py-2 rounded-xl text-xs font-bold">Users</button>
-              <button onClick={() => setAdminTab('logs')} className="bg-blue-600 px-4 py-2 rounded-xl text-xs font-bold">Logs</button>
+                <button onClick={() => { setAdminTab('orders'); setActiveMember(null); }} className="bg-blue-600 px-4 py-2 rounded-xl text-xs font-bold">Orders</button>
+                <button onClick={() => { setAdminTab('members'); setActiveMember(null); }} className="bg-blue-600 px-4 py-2 rounded-xl text-xs font-bold">Users</button>
+                <button onClick={() => setAdminTab('logs')} className="bg-blue-600 px-4 py-2 rounded-xl text-xs font-bold">Logs</button>
             </div>
-            
             {adminTab === 'members' && !activeMember && (
-              <div className="space-y-3">{allMembers.map(m => (
-                <div key={m.uid} onClick={() => { setActiveMember(m); setAdminTab('member_history'); }} className="bg-[#112240] p-4 rounded-2xl flex justify-between items-center cursor-pointer">
-                  <p className="font-bold text-sm">{m.name}</p><p className="text-xs text-blue-400">{m.balance} Ks</p>
-                </div>
-              ))}</div>
-            )}
-
-            {adminTab === 'member_history' && activeMember && (
-              <div className="animate-in fade-in">
-                <button onClick={() => { setActiveMember(null); setAdminTab('members'); }} className="mb-4 flex items-center text-blue-500 text-xs"><ArrowLeft size={16}/> Back</button>
-                <h3 className="text-xl font-black">{activeMember.name}</h3>
-                <p className="text-sm text-slate-400 mb-6">Balance: {activeMember.balance || 0} Ks</p>
-                
-                <h4 className="text-xs font-bold uppercase text-slate-500 mb-2">History</h4>
-                <div className="space-y-2">
-                  {sysLogs.filter(l => l.targetGmail === activeMember.email).map(l => (
-                    <div key={l.id} className="bg-[#112240] p-3 rounded-lg flex justify-between text-xs">
-                      <span>{l.detail}</span><span className={l.amount > 0 ? 'text-green-500' : 'text-red-500'}>{l.amount} Ks</span>
+                <div className="space-y-3">{allMembers.map(m => (
+                    <div key={m.uid} onClick={() => { setActiveMember(m); setAdminTab('member_history'); }} className="bg-[#112240] p-4 rounded-2xl flex justify-between items-center cursor-pointer">
+                        <p className="font-bold text-sm">{m.name}</p><p className="text-[10px] text-blue-400">{m.balance || 0} Ks</p>
                     </div>
-                  ))}
-                </div>
-              </div>
+                ))}</div>
             )}
-
-            {adminTab === 'logs' && (
-              <div className="space-y-2">{sysLogs.map(l => (
-                <div key={l.id} className="bg-[#112240] p-3 rounded-lg text-xs">
-                  <p className="font-bold text-white">{l.targetUser}</p><p className="text-slate-400">{l.detail} - {l.amount} Ks</p>
+            {adminTab === 'member_history' && activeMember && (
+                <div className="bg-[#112240] p-6 rounded-3xl">
+                    <button onClick={() => { setActiveMember(null); setAdminTab('members'); }} className="mb-4 text-blue-500 text-xs">Back</button>
+                    <h3 className="font-black text-xl">{activeMember.name}</h3>
+                    <p className="text-sm text-slate-400 mb-6">Balance: {activeMember.balance || 0} Ks</p>
+                    <div className="space-y-2">{sysLogs.filter(l => l.targetGmail === activeMember.email).map(l => (
+                        <div key={l.id} className="flex justify-between p-3 bg-black/20 rounded-lg text-xs">
+                            <span>{l.detail}</span><span className={l.amount > 0 ? 'text-green-500' : 'text-red-500'}>{l.amount} Ks</span>
+                        </div>
+                    ))}</div>
                 </div>
-              ))}</div>
             )}
+            {adminTab === 'logs' && <div className="space-y-2">{sysLogs.map(l => (
+                <div key={l.id} className="bg-[#112240] p-3 rounded-lg text-xs"><p className="font-bold">{l.targetUser}</p><p className="text-slate-400">{l.detail} - {l.amount} Ks</p></div>
+            ))}</div>}
             <BottomNav />
-          </div>
-        )}
-        {/* view logic များ ဆက်လက် ထည့်သွင်းရန် */}
-      </div>
+        </div>
+      )}
+      {view === 'customer_dash' && (
+        <div className="p-6 pb-40">
+           <MainHeader />
+           <h2 className="text-xl font-black my-6">My History</h2>
+           <div className="space-y-4">
+               {myOrders.map(o => (<div key={o.id} className="bg-[#112240] p-4 rounded-xl text-xs">{o.product} - {o.price} Ks</div>))}
+           </div>
+           <h2 className="text-xl font-black my-6">Balance Logs</h2>
+           <div className="space-y-2">
+               {sysLogs.filter(l => l.targetGmail === user.email).map(l => (
+                   <div key={l.id} className="p-3 bg-[#112240] rounded-lg text-xs flex justify-between">
+                       <span>{l.detail}</span><span className={l.amount > 0 ? 'text-green-500' : 'text-red-500'}>{l.amount} Ks</span>
+                   </div>
+               ))}
+           </div>
+           <BottomNav />
+        </div>
+      )}
+      {/* View အခြားအပိုင်းများ */}
     </div>
   );
 }
