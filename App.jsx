@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { initializeApp } from 'firebase/app';
-import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged } from 'firebase/auth';
+import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, collection, addDoc, onSnapshot, updateDoc, query, orderBy } from 'firebase/firestore';
-import { ShoppingBag, ArrowLeft, CheckCircle2, Loader2, User, ShieldCheck, LogOut, Send, Save, Layers, Image as ImageIcon, History, Plus, X, Search, ShoppingCart, LogIn, Facebook, Share2, MessageCircle, ChevronRight, Trash2, Wallet, FileText } from 'lucide-react';
+import { ShoppingBag, ArrowLeft, CheckCircle2, Loader2, User, ShieldCheck, LogOut, Send, Save, Layers, Image as ImageIcon, History, Plus, X, Search, ShoppingCart, LogIn, Facebook, Share2, MessageCircle, ChevronRight, Trash2, Wallet, FileText, AlertCircle, Eye } from 'lucide-react';
 
 // --- (၁) CONFIGURATION ---
 const LOGO_URL = "https://drive.google.com/thumbnail?id=1Lh-nHgyLMSr3rBVe4OGnjEvEspuMokd6&sz=w1000"; 
@@ -45,18 +45,22 @@ export default function App() {
   const [myOrders, setMyOrders] = useState([]);
   const [allOrders, setAllOrders] = useState([]); 
   const [allMembers, setAllMembers] = useState([]); 
-  const [sysLogs, setSysLogs] = useState([]); // System Logs များကို သိမ်းရန်
+  const [sysLogs, setSysLogs] = useState([]); 
   const [selectedCat, setSelectedCat] = useState(null);
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [editContact, setEditContact] = useState('');
-  const [adminTab, setAdminTab] = useState('orders'); // orders | members | logs
+  const [adminTab, setAdminTab] = useState('orders'); 
   const [deliveryInputs, setDeliveryInputs] = useState({});
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [payImg, setPayImg] = useState("");
   const [searchTerm, setSearchTerm] = useState('');
   const [cart, setCart] = useState([]);
   const [isSocialOpen, setIsSocialOpen] = useState(false);
+
+  // Customer Detail Modal States
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
 
   // --- (၃) CORE LOGIC ---
   const syncProfile = useCallback(async (u) => {
@@ -89,15 +93,14 @@ export default function App() {
     const qOrders = query(collection(db, 'artifacts', appId, 'public', 'data', 'orders'), orderBy('timestamp', 'desc'));
     onSnapshot(qOrders, (sn) => {
       const docs = sn.docs.map(d => ({ id: d.id, ...d.data() }));
-      setAllOrders(docs); setMyOrders(docs.filter(o => o.userId === user.uid));
+      setAllOrders(docs); setMyOrders(docs.filter(o => o && o.userId === user.uid));
     });
     
     const userRef = doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data');
-    onSnapshot(userRef, (doc) => { if(doc.exists()) setProfile(doc.data()); });
+    onSnapshot(userRef, (docSnap) => { if(docSnap.exists()) setProfile(docSnap.data()); });
 
     if (profile?.role === 'admin') {
       onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'members'), (sn) => setAllMembers(sn.docs.map(d => ({ id: d.id, ...d.data() }))));
-      // Logs များကို ဖတ်ရန်
       onSnapshot(query(collection(db, 'artifacts', appId, 'public', 'data', 'logs'), orderBy('timestamp', 'desc')), (sn) => {
         setSysLogs(sn.docs.map(d => ({ id: d.id, ...d.data() })));
       });
@@ -143,7 +146,6 @@ export default function App() {
         await updateDoc(profileRef, { balance: newBalance });
         await updateDoc(memberRef, { balance: newBalance });
         
-        // Purchase Log သွင်းခြင်း
         await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'logs'), {
           type: 'Purchase',
           targetUser: profile.name,
@@ -193,18 +195,19 @@ export default function App() {
       const orderRef = doc(db, 'artifacts', appId, 'public', 'data', 'orders', orderId);
       await updateDoc(orderRef, { status: newStatus, result: resultData });
 
-      if (newStatus === 'Completed') {
+      if (newStatus === 'Completed' || newStatus === 'Failed') {
         await fetch(SCRIPT_URL, {
           method: "POST",
           mode: "no-cors",
           body: JSON.stringify({
             type: "update_order",
             orderId: orderId,
+            status: newStatus,
             resultData: resultData
           })
         });
       }
-      alert("Delivery Confirmed & Sheet Updated!");
+      alert(newStatus === 'Completed' ? "Delivery Confirmed & Sheet Updated!" : "Order marked as Failed and notified!");
     } catch (e) { 
       alert(e.message); 
     } finally { 
@@ -234,10 +237,10 @@ export default function App() {
   // --- (၄) UI COMPONENTS ---
   const MainHeader = () => (
     <div className="flex items-center justify-between p-4 bg-[#0a192f]/95 backdrop-blur-md sticky top-0 z-40 border-b border-blue-900/20">
-      <div className="flex items-center gap-2"><img src={LOGO_URL} className="w-8 h-8 rounded-lg" alt="L" /><h2 className="text-sm font-black text-white uppercase tracking-tighter">MM Tech</h2></div>
+      <div className="flex items-center gap-2 cursor-pointer" onClick={() => setView('home')}><img src={LOGO_URL} className="w-8 h-8 rounded-lg" alt="L" /><h2 className="text-sm font-black text-white uppercase tracking-tighter">MM Tech</h2></div>
       <div className="flex items-center gap-3">
         <div className="relative cursor-pointer mr-1" onClick={() => setView('cart_view')}><ShoppingCart size={22} className="text-blue-500" />{cart.length > 0 && <span className="absolute -top-2 -right-2 bg-red-600 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center">{cart.length}</span>}</div>
-        {user ? <img src={profile?.photoURL || LOGO_URL} className="w-8 h-8 rounded-full border border-blue-500/50 cursor-pointer object-cover" onClick={() => setView('profile')} /> : 
+        {user ? <img src={profile?.photoURL || LOGO_URL} className="w-8 h-8 rounded-full border border-blue-500/50 cursor-pointer object-cover" onClick={() => setView('profile')} alt="U" /> : 
         <button onClick={() => setView('welcome')} className="bg-blue-600/20 text-blue-500 px-3 py-1.5 rounded-full text-[9px] font-black flex items-center gap-1.5 border border-blue-500/30 active:scale-95 transition-all"><LogIn size={12}/> LOGIN</button>}
       </div>
     </div>
@@ -335,6 +338,7 @@ export default function App() {
               <div className="mb-10"><p className="text-[10px] font-black text-slate-500 uppercase mb-3 ml-2 tracking-widest">Payment Receipt</p><div className="w-full aspect-video bg-[#112240] rounded-[2rem] border-2 border-dashed border-blue-900/30 flex items-center justify-center relative overflow-hidden group">
                 {payImg ? <div className="w-full h-full relative"><img src={payImg} className="w-full h-full object-contain" alt="P"/><button onClick={()=>setPayImg("")} className="absolute top-4 right-4 bg-red-500 p-2 rounded-full shadow-lg active:scale-90 transition-all"><X size={16}/></button></div> : 
                 <label className="cursor-pointer w-full h-full flex flex-col items-center justify-center text-blue-500 group-hover:bg-blue-500/5 transition-colors"><ImageIcon size={32}/><span className="text-[10px] font-black mt-2 uppercase tracking-widest">Upload Screenshot</span><input type="file" className="hidden" onChange={async e => {
+                  if (!e.target.files[0]) return;
                   setLoading(true); const fd = new FormData(); fd.append("image", e.target.files[0]);
                   const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, { method: "POST", body: fd });
                   const d = await res.json(); if(d.success) setPayImg(d.data.url); setLoading(false);
@@ -347,6 +351,60 @@ export default function App() {
             </button></div><BottomNav /></div>
         )}
 
+        {view === 'order_success' && (
+          <div className="p-10 pb-40 flex-1 flex flex-col items-center justify-center text-center">
+            <CheckCircle2 size={80} className="text-green-500 mb-6 animate-bounce" />
+            <h2 className="text-2xl font-black uppercase mb-2">Order Successful!</h2>
+            <p className="text-slate-400 text-xs mb-8">သင့်အော်ဒါတင်ခြင်း အောင်မြင်ပါသည်။ Admin မှ စစ်ဆေးပြီး အမြန်ဆုံး ဆောင်ရွက်ပေးပါမည်။</p>
+            <button onClick={() => setView('home')} className="w-full max-w-xs bg-blue-600 py-4 rounded-2xl font-black text-white shadow-xl">Back to Home</button>
+            <BottomNav />
+          </div>
+        )}
+
+        {view === 'customer_dash' && (
+          <div className="p-6 pb-40 flex-1 flex flex-col"><MainHeader />
+            <h2 className="text-xl font-black uppercase my-6 tracking-tighter">My Orders History</h2>
+            <div className="space-y-4 overflow-y-auto no-scrollbar flex-1">
+              {myOrders.length === 0 ? <p className="text-center text-slate-500 text-xs mt-20">No orders found.</p> :
+              myOrders.map(o => (
+                <div key={o.id} className="bg-[#112240] p-5 rounded-3xl border border-blue-900/20 shadow-lg">
+                  <div className="flex justify-between items-center mb-2">
+                    <h4 className="text-xs font-black uppercase">{o.product}</h4>
+                    <span className={`px-2 py-1 rounded-full text-[8px] font-black uppercase ${o.status === 'Completed' ? 'bg-green-500/10 text-green-500' : o.status === 'Failed' ? 'bg-red-500/10 text-red-500' : 'bg-yellow-500/10 text-yellow-500'}`}>{o.status}</span>
+                  </div>
+                  <p className="text-[10px] text-blue-500 font-bold mb-2">{o.plan} • {o.price} Ks</p>
+                  <p className="text-[10px] text-slate-400">Date: {o.date}</p>
+                  {o.status === 'Failed' && o.result && (
+                    <div className="mt-3 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-[11px] text-red-400 whitespace-pre-wrap">
+                      <b>❌ မအောင်မြင်ရသည့် အကြောင်းရင်း:</b><br/>{o.result}
+                    </div>
+                  )}
+                  {o.status === 'Completed' && o.result && (
+                    <div className="mt-3 p-3 bg-green-500/10 border border-green-500/20 rounded-xl text-[11px] text-green-400 whitespace-pre-wrap">
+                      <b>Result / Details:</b><br/>{o.result}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div><BottomNav />
+          </div>
+        )}
+
+        {view === 'profile' && user && (
+          <div className="p-6 pb-40 flex-1 flex flex-col items-center"><MainHeader />
+            <div className="w-full max-w-md bg-[#112240] p-8 rounded-[2.5rem] border border-blue-900/30 text-center my-auto shadow-2xl">
+              <img src={profile?.photoURL || user.photoURL || LOGO_URL} className="w-24 h-24 rounded-full mx-auto mb-4 border-2 border-blue-500 object-cover shadow-xl" alt="Profile" />
+              <h2 className="text-xl font-black mb-1">{profile?.name || user.displayName}</h2>
+              <p className="text-slate-400 text-xs mb-4">{user.email}</p>
+              <div className="flex justify-center gap-2 mb-6">
+                <span className="px-3 py-1 bg-blue-600/20 border border-blue-500/30 text-blue-400 text-[10px] font-black rounded-full uppercase">{profile?.tier || 'Standard'}</span>
+                <span className="px-3 py-1 bg-green-600/20 border border-green-500/30 text-green-400 text-[10px] font-black rounded-full uppercase">Balance: {profile?.balance || 0} Ks</span>
+              </div>
+              <button onClick={() => { signOut(auth); setView('home'); }} className="w-full bg-red-600/20 border border-red-500/30 text-red-500 py-3 rounded-2xl font-black text-xs flex items-center justify-center gap-2 active:scale-95 transition-all"><LogOut size={16}/> Sign Out</button>
+            </div><BottomNav />
+          </div>
+        )}
+
         {view === 'admin_dash' && profile?.role === 'admin' && (
           <div className="p-6 pb-40 flex-1 flex flex-col"><MainHeader /><div className="flex justify-between items-center my-8"><h2 className="text-2xl font-black uppercase tracking-tighter">Management</h2>
           <div className="flex bg-[#112240] p-1 rounded-2xl border border-blue-900/20">
@@ -355,17 +413,29 @@ export default function App() {
             <button onClick={() => setAdminTab('logs')} className={`px-4 py-2 rounded-xl text-[10px] font-black transition-all ${adminTab === 'logs' ? 'bg-blue-600 shadow-lg' : 'text-slate-500'}`}>LOGS</button>
           </div>
           </div>
-            <div className="space-y-4 overflow-y-auto no-scrollbar max-w-4xl mx-auto w-full">
+            <div className="space-y-4 overflow-y-auto no-scrollbar max-w-4xl mx-auto w-full flex-1">
               {/* ORDERS TAB */}
               {adminTab === 'orders' && allOrders.map(o => (
                 <div key={o.id} className="bg-[#112240] p-6 rounded-[2.5rem] border border-blue-900/30 shadow-xl">
-                  <div className="flex justify-between items-start mb-4"><div><h4 className="font-black text-sm uppercase text-white">{o.product}</h4><p className="text-blue-500 text-[10px] font-black uppercase tracking-widest">{o.plan} • {o.price} Ks</p></div><span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase ${o.status === 'Completed' ? 'bg-green-500/10 text-green-500' : 'bg-yellow-500/10 text-yellow-500'}`}>{o.status}</span></div>
+                  <div className="flex justify-between items-start mb-4">
+                    <div>
+                      <h4 className="font-black text-sm uppercase text-white">{o.product}</h4>
+                      <p className="text-blue-500 text-[10px] font-black uppercase tracking-widest">{o.plan} • {o.price} Ks</p>
+                    </div>
+                    <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase ${o.status === 'Completed' ? 'bg-green-500/10 text-green-500' : o.status === 'Failed' ? 'bg-red-500/10 text-red-500' : 'bg-yellow-500/10 text-yellow-500'}`}>{o.status}</span>
+                  </div>
                   <div className="bg-black/20 p-5 rounded-2xl text-[12px] text-slate-300 mb-4 whitespace-pre-wrap border border-blue-900/10 font-medium"><b>Customer:</b> {o.userName} ({o.userGmail})<br/><b>Payment:</b> <span className={o.paymentMethod === 'Credit (CRD)' ? 'text-blue-400' : 'text-slate-300'}>{o.paymentMethod || 'Manual'}</span><br/><br/><b>Details:</b><br/>{o.contact}</div>
                   <div className="flex gap-2 mb-4">{o.payImage && <a href={o.payImage} target="_blank" rel="noreferrer" className="flex-1 bg-green-600/10 p-2 rounded-xl text-center text-[9px] font-black text-green-500 border border-green-500/20 hover:bg-green-600/20 transition-all">View Receipt</a>}{o.techImages?.map((img, i) => <a key={i} href={img} target="_blank" rel="noreferrer" className="w-12 h-12 bg-blue-600/10 rounded-xl overflow-hidden shrink-0 border border-blue-500/20 hover:scale-105 transition-transform"><img src={img} className="w-full h-full object-cover" alt="T" /></a>)}</div>
                   {o.status === 'Pending' && (
                     <div className="flex flex-col gap-3">
-                      <textarea rows="3" placeholder="Deliver details (Gmail, Pass, Codes, etc)..." className="w-full bg-[#0a192f] p-4 rounded-2xl text-[11px] outline-none border border-blue-900/30 focus:border-blue-500 text-white" value={deliveryInputs[o.id] || ''} onChange={e => setDeliveryInputs({...deliveryInputs, [o.id]: e.target.value})} />
-                      <button onClick={() => updateOrderStatus(o.id, 'Completed', deliveryInputs[o.id])} className="w-full bg-blue-600 py-4 rounded-xl font-black text-[11px] uppercase shadow-lg active:scale-95 transition-all hover:bg-blue-500">CONFIRM & SEND RESULT</button>
+                      <textarea rows="3" placeholder="Deliver details (Gmail, Pass, Codes) OR failure reason..." className="w-full bg-[#0a192f] p-4 rounded-2xl text-[11px] outline-none border border-blue-900/30 focus:border-blue-500 text-white" value={deliveryInputs[o.id] || ''} onChange={e => setDeliveryInputs({...deliveryInputs, [o.id]: e.target.value})} />
+                      <div className="flex gap-2">
+                        <button onClick={() => updateOrderStatus(o.id, 'Completed', deliveryInputs[o.id])} className="flex-1 bg-blue-600 py-3 rounded-xl font-black text-[11px] uppercase shadow-lg active:scale-95 transition-all hover:bg-blue-500 flex items-center justify-center gap-1"><CheckCircle2 size={14}/> CONFIRM & SEND</button>
+                        <button onClick={() => {
+                          const reason = deliveryInputs[o.id] || "အချက်အလက် မမှန်ကန်ခြင်း သို့မဟုတ် ငွေလွှဲလက်ခံမှု မရှိခြင်းကြောင့် အော်ဒါမအောင်မြင်ပါ။";
+                          updateOrderStatus(o.id, 'Failed', reason);
+                        }} className="flex-1 bg-red-600 py-3 rounded-xl font-black text-[11px] uppercase shadow-lg active:scale-95 transition-all hover:bg-red-500 flex items-center justify-center gap-1"><X size={14}/> MARK AS FAILED</button>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -374,10 +444,10 @@ export default function App() {
               {/* USERS TAB */}
               {adminTab === 'members' && <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">{allMembers.map(m => (
                 <div key={m.uid} className="bg-[#112240] p-4 rounded-3xl flex flex-col md:flex-row items-start md:items-center justify-between border border-blue-900/10 shadow-lg gap-4">
-                  <div className="flex items-center gap-3">
-                    <img src={m.photoURL || LOGO_URL} className="w-12 h-12 rounded-xl object-cover" alt="M" />
+                  <div className="flex items-center gap-3 cursor-pointer group" onClick={() => { setSelectedCustomer(m); setIsCustomerModalOpen(true); }}>
+                    <img src={m.photoURL || LOGO_URL} className="w-12 h-12 rounded-xl object-cover border border-blue-500/30 group-hover:scale-105 transition-transform" alt="M" />
                     <div>
-                      <p className="text-[12px] font-black text-white">{m.name}</p>
+                      <p className="text-[12px] font-black text-white flex items-center gap-1">{m.name} <Eye size={12} className="text-blue-400"/></p>
                       <p className="text-[9px] text-blue-500 font-bold uppercase tracking-widest">{m.tier} • BAL: {m.balance || 0} Ks</p>
                     </div>
                   </div>
@@ -389,7 +459,6 @@ export default function App() {
                         await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'members', m.uid), { balance: newBal });
                         await updateDoc(doc(db, 'artifacts', appId, 'users', m.uid, 'profile', 'data'), { balance: newBal });
                         
-                        // Topup Log သွင်းခြင်း
                         await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'logs'), {
                           type: 'Topup',
                           targetUser: m.name,
@@ -413,35 +482,72 @@ export default function App() {
 
               {/* LOGS TAB */}
               {adminTab === 'logs' && <div className="space-y-3 w-full">
-                {sysLogs.length === 0 ? <p className="text-center text-slate-500 text-xs mt-10">No logs found.</p> : sysLogs.map(l => (
-                  <div key={l.id} className="bg-[#112240] p-4 rounded-2xl border border-blue-900/10 flex justify-between items-center">
+                {sysLogs.length === 0 ? <p className="text-center text-slate-500 text-xs mt-10">No logs found.</p> :
+                sysLogs.map(log => (
+                  <div key={log.id} className="bg-[#112240] p-4 rounded-2xl border border-blue-900/20 text-xs flex justify-between items-center">
                     <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-md ${l.type === 'Topup' ? 'bg-green-500/20 text-green-400' : 'bg-blue-500/20 text-blue-400'}`}>{l.type}</span>
-                        <span className="text-[10px] text-slate-400">{l.date}</span>
-                      </div>
-                      <p className="text-xs font-bold">{l.targetUser} <span className="text-slate-400 font-normal">({l.targetGmail})</span></p>
-                      <p className="text-[10px] text-slate-500">{l.detail}</p>
+                      <p className="font-black text-blue-400 uppercase">{log.type} - {log.targetUser}</p>
+                      <p className="text-slate-300 text-[11px]">{log.detail} (Old: {log.oldBalance} ➔ New: {log.newBalance} Ks)</p>
+                      <span className="text-[9px] text-slate-500">{log.date}</span>
                     </div>
-                    <div className="text-right">
-                      <p className={`text-sm font-black ${l.amount > 0 ? 'text-green-500' : 'text-red-400'}`}>{l.amount > 0 ? '+' : ''}{l.amount} Ks</p>
-                      <p className="text-[9px] text-slate-400 font-bold">Bal: {l.newBalance} Ks</p>
-                    </div>
+                    <span className={`font-black ${log.amount > 0 ? 'text-green-500' : 'text-red-500'}`}>{log.amount > 0 ? `+${log.amount}` : log.amount} Ks</span>
                   </div>
                 ))}
               </div>}
-            </div><BottomNav /></div>
+            </div>
+          <BottomNav /></div>
         )}
 
-        {view === 'customer_dash' && <div className="p-6 pb-40 flex-1 flex flex-col"><MainHeader /><h2 className="text-3xl font-black my-8 uppercase tracking-tighter">My History</h2><div className="max-w-2xl mx-auto w-full space-y-4">{myOrders.length === 0 ? <div className="text-center py-24 opacity-30 flex flex-col items-center"><History size={60} className="mb-4" /><p className="text-xs uppercase font-bold tracking-widest">No order history found</p></div> : myOrders.map(o => (
-          <div key={o.id} className="bg-[#112240] p-6 rounded-[2.5rem] border border-blue-900/20 shadow-xl"><div className="flex justify-between items-start mb-2"><div><h4 className="font-black text-sm uppercase text-white">{o.product}</h4><p className="text-blue-500 text-[10px] font-black uppercase tracking-widest">{o.plan} • {o.price} Ks</p></div><span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase ${o.status === 'Completed' ? 'bg-green-500/10 text-green-500' : 'bg-yellow-500/10 text-yellow-500'}`}>{o.status}</span></div>{o.result && <div className="mt-4 p-5 bg-green-500/5 border border-green-500/10 rounded-2xl flex items-center justify-between gap-4 shadow-inner"><code className="text-xs font-bold text-green-400 break-all whitespace-pre-wrap leading-relaxed">{o.result}</code><button onClick={()=>{navigator.clipboard.writeText(o.result); alert("Copied to Clipboard!");}} className="bg-green-600 p-2.5 rounded-xl text-white shadow-xl active:scale-90 transition-all hover:bg-green-500"><Save size={16}/></button></div>}<p className="text-[9px] text-slate-600 mt-5 uppercase font-bold italic tracking-tight">{o.date}</p></div>))}</div><BottomNav /></div>}
+        {/* CUSTOMER DETAIL MODAL */}
+        {isCustomerModalOpen && selectedCustomer && (
+          <div className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-[#112240] w-full max-w-lg p-6 rounded-[2.5rem] border border-blue-500/30 shadow-2xl relative animate-in zoom-in duration-200">
+              <button onClick={() => { setIsCustomerModalOpen(false); setSelectedCustomer(null); }} className="absolute top-6 right-6 bg-red-500/20 text-red-500 p-2 rounded-full hover:bg-red-500 hover:text-white transition-all"><X size={18}/></button>
+              <div className="flex items-center gap-4 mb-6">
+                <img src={selectedCustomer.photoURL || LOGO_URL} className="w-16 h-16 rounded-2xl object-cover border-2 border-blue-500" alt="Avatar"/>
+                <div>
+                  <h3 className="text-lg font-black text-white">{selectedCustomer.name}</h3>
+                  <p className="text-xs text-slate-400">{selectedCustomer.email || "No Email Provided"}</p>
+                  <span className="inline-block mt-1 px-3 py-0.5 bg-blue-600/20 text-blue-400 text-[9px] font-black rounded-full uppercase border border-blue-500/30">{selectedCustomer.tier || 'Standard'}</span>
+                </div>
+              </div>
+              
+              <div className="space-y-3 bg-[#0a192f] p-4 rounded-2xl border border-blue-900/20 text-xs mb-6">
+                <div className="flex justify-between border-b border-blue-900/20 pb-2">
+                  <span className="text-slate-400">User UID:</span>
+                  <span className="font-mono text-slate-200">{selectedCustomer.uid}</span>
+                </div>
+                <div className="flex justify-between border-b border-blue-900/20 pb-2">
+                  <span className="text-slate-400">Current Balance:</span>
+                  <span className="font-black text-green-400">{selectedCustomer.balance || 0} Ks</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Account Role:</span>
+                  <span className="font-black uppercase text-blue-400">{selectedCustomer.role || 'user'}</span>
+                </div>
+              </div>
 
-        {view === 'order_success' && <div className="flex-1 flex flex-col items-center justify-center p-12 text-center animate-in zoom-in duration-500"><CheckCircle2 size={110} className="text-green-500 mb-8 drop-shadow-[0_0_15px_rgba(34,197,94,0.4)]" /><h2 className="text-4xl font-black mb-4 uppercase tracking-tighter">Order Placed!</h2><p className="text-slate-400 text-sm mb-12 uppercase tracking-widest font-bold">ဝယ်ယူမှုအတွက် ကျေးဇူးတင်ပါတယ်ဗျ။</p><button onClick={() => setView('customer_dash')} className="w-full max-w-xs bg-blue-600 py-5 rounded-3xl font-black text-white shadow-2xl active:scale-95 transition-all uppercase tracking-widest">View History</button></div>}
+              <h4 className="text-[11px] font-black uppercase text-slate-400 mb-3 tracking-widest">Customer Orders History</h4>
+              <div className="max-h-48 overflow-y-auto no-scrollbar space-y-2 mb-6">
+                {allOrders.filter(o => o && o.userId === selectedCustomer?.uid).length === 0 ? (
+                  <p className="text-center text-slate-500 text-[11px] py-4">This customer has no orders yet.</p>
+                ) : (
+                  allOrders.filter(o => o && o.userId === selectedCustomer?.uid).map(order => (
+                    <div key={order.id} className="bg-[#0a192f] p-3 rounded-xl border border-blue-900/10 flex justify-between items-center text-xs">
+                      <div>
+                        <p className="font-bold text-white uppercase text-[11px]">{order.product} ({order.plan})</p>
+                        <span className="text-[9px] text-slate-400">{order.date} • {order.price} Ks</span>
+                      </div>
+                      <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${order.status === 'Completed' ? 'bg-green-500/10 text-green-500' : order.status === 'Failed' ? 'bg-red-500/10 text-red-500' : 'bg-yellow-500/10 text-yellow-500'}`}>{order.status}</span>
+                    </div>
+                  ))
+                )}
+              </div>
 
-        {view === 'profile' && <div className="p-10 flex flex-col flex-1 items-center justify-center pb-40"><MainHeader /><div className="text-center animate-in fade-in duration-500"><img src={profile?.photoURL || LOGO_URL} className="w-28 h-28 mx-auto rounded-[2.5rem] border-4 border-blue-600/20 mb-6 shadow-2xl object-cover" alt="U" /><h3 className="text-3xl font-black uppercase mb-1 tracking-tighter text-white">{profile?.name}</h3>
-        <p className="text-blue-500 font-black uppercase text-[11px] mb-2 tracking-widest">{profile?.tier} Account</p>
-        <div className="bg-[#112240] border border-blue-900/30 rounded-2xl py-3 px-6 mb-12 inline-block"><p className="text-[10px] text-slate-400 uppercase font-bold tracking-widest mb-1">Current Balance</p><p className="text-xl font-black text-white">{profile?.balance || 0} Ks</p></div>
-        <button onClick={() => auth.signOut()} className="flex items-center gap-3 text-red-500 font-black text-sm active:scale-95 transition-all mx-auto hover:text-red-400 px-6 py-3 rounded-2xl bg-red-500/5 border border-red-500/10"><LogOut size={22}/> SIGN OUT ACCOUNT</button></div><BottomNav /></div>}
+              <button onClick={() => { setIsCustomerModalOpen(false); setSelectedCustomer(null); }} className="w-full bg-blue-600 py-3 rounded-xl font-black text-xs uppercase shadow-lg active:scale-95 transition-all">Close</button>
+            </div>
+          </div>
+        )}
 
       </div>
     </div>
