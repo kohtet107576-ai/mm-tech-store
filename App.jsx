@@ -607,7 +607,7 @@ export default function App() {
                 <p className="text-[10px] font-black text-slate-400 uppercase mb-2.5 ml-1 tracking-widest">Payment Method</p>
                 <div className="grid grid-cols-4 gap-2">
                   {[ 
-                    { id: 'kpay', name: 'KBZ Pay', num: '09 402529376', user: 'Daw Khin Mar Wai', img: 'https://i.ibb.co/Jj3SFW3C/kpay-logo.png' }, 
+                    { id: 'kpay', name: 'KBZ Pay', num: '09 976659997', user: 'Daw Khin Mar Wai', img: 'https://i.ibb.co/Jj3SFW3C/kpay-logo.png' }, 
                     { id: 'wave', name: 'Wave Money', num: '09 793655312', user: 'U Sai Khun Thet Hein', img: 'https://i.ibb.co/23yq59BX/wave-pay.png' }, 
                     { id: 'ayapay', name: 'UAB Pay', num: '09 2021942', user: 'U Htet Wai Soe', img: 'https://i.ibb.co/GQyyTxh2/uabpay.png' },
                     { id: 'visa', name: 'VISA', num: '4052 6403 0832 7313', user: 'U Htet Wai Soe', img: 'https://i.ibb.co/HLR2TxPr/Untitled-1.png' }, 
