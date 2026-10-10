@@ -6,21 +6,16 @@ import {
   ShoppingBag, ArrowLeft, CheckCircle2, Loader2, User, ShieldCheck, 
   LogOut, Send, Image as ImageIcon, History, X, Search, ShoppingCart, 
   LogIn, Facebook, Share2, MessageCircle, ChevronRight, Trash2, 
-  Megaphone, Phone, Folder, Layers
+  Megaphone, Phone
 } from 'lucide-react';
 
 // --- (၁) CONFIGURATION ---
 const LOGO_URL = "https://drive.google.com/thumbnail?id=1Lh-nHgyLMSr3rBVe4OGnjEvEspuMokd6&sz=w1000"; 
-
-// ⚠️ Apps Script မှ Deploy လုပ်ပြီး ရလာသော Web App URL အသစ်ကို ဤနေရာတွင် ထည့်ပေးပါ
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby538xir03xxxyEFn0Mb_XQC5EqOobCYBYsQWJRJaAHIJOip9tHg_sAeo8Ov8_fAola/exec";
-
-// 🔒 Google Apps Script ထဲရှိ EXPECTED_TOKEN နှင့် အတိအကျ တူညီရမည့် Secret Key
 const API_SECRET = "MMTech_Secure_Token_50056444"; 
-
 const IMGBB_API_KEY = "88d3b49cfcf4fa4b1e77ce493aa3172a";
 const ADMIN_EMAILS = ["kohtet107576@gmail.com"]; 
-const TG_BOT_URL = "https://t.me/mmtech19"; // Telegram Bot Link
+const TG_BOT_URL = "https://t.me/mmtech19";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCBWTPAr0xWwpN9ASinAQWK_incw8kD-v4",
@@ -58,9 +53,8 @@ export default function App() {
   const [allOrders, setAllOrders] = useState([]); 
   const [announcement, setAnnouncement] = useState("📢 MM Tech မှ ကြိုဆိုပါသည်! • 24/7 Auto-Buy အတွက် Telegram Bot သို့ သွားရောက်နိုင်ပါသည်။");
 
-  // Category Navigation Hierarchy
+  // Category & Product Selection
   const [selectedCat, setSelectedCat] = useState(null);
-  const [selectedSubCat, setSelectedSubCat] = useState(null);
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [selectedPlan, setSelectedPlan] = useState(null);
   
@@ -102,7 +96,7 @@ export default function App() {
       setView('home'); 
     });
 
-    // Google Sheets မှ Products နှင့် Announcement စာတန်းပြေး ဆွဲယူခြင်း
+    // Google Sheets မှ Products နှင့် Announcement စာတန်းပြေး ဆွဲယူခြင်း (Safe Fetching)
     fetch(SCRIPT_URL)
       .then(res => res.json())
       .then(data => {
@@ -110,6 +104,7 @@ export default function App() {
           setProducts(data);
         } else if (data && typeof data === 'object') {
           if (Array.isArray(data.products)) setProducts(data.products);
+          else if (Array.isArray(data.data)) setProducts(data.data);
           if (data.announcement) setAnnouncement(data.announcement);
         }
       })
@@ -135,7 +130,7 @@ export default function App() {
     });
   }, [user]);
 
-  // --- (၄) ORDER SUBMIT LOGIC (Security Token ပါဝင်သည်) ---
+  // --- (၄) ORDER SUBMIT LOGIC ---
   const handleOrder = async () => {
     if (!user) return setView('welcome');
     
@@ -165,24 +160,21 @@ export default function App() {
     };
 
     try {
-      // User Profile တွင် Phone Number အသစ် မှတ်သားပေးခြင်း
       const profileRef = doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data');
       await updateDoc(profileRef, { phone: customerPhone.trim() });
 
-      // Firestore Orders ထဲသို့ Pending အဖြစ် ထည့်သွင်းခြင်း
       const docRef = await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'orders'), { 
         ...orderData, 
         status: 'Pending', 
         timestamp: Date.now() 
       });
 
-      // 🔒 Secret Token ဖြင့် Google Apps Script (Weborder Tab) သို့ ပို့ဆောင်ခြင်း
       await fetch(SCRIPT_URL, { 
         method: "POST", 
         mode: "no-cors", 
         body: JSON.stringify({ 
           ...orderData, 
-          token: API_SECRET, // <--- Security Token
+          token: API_SECRET, 
           type: "new_order", 
           orderId: docRef.id 
         }) 
@@ -206,12 +198,11 @@ export default function App() {
       const orderRef = doc(db, 'artifacts', appId, 'public', 'data', 'orders', orderId);
       await updateDoc(orderRef, { status: newStatus, result: resultData });
 
-      // 🔒 Secret Token ဖြင့် Apps Script တွင် Status Update ပြုလုပ်ခြင်း
       await fetch(SCRIPT_URL, {
         method: "POST",
         mode: "no-cors",
         body: JSON.stringify({
-          token: API_SECRET, // <--- Security Token
+          token: API_SECRET,
           type: "update_order",
           orderId: orderId,
           status: newStatus,
@@ -226,52 +217,41 @@ export default function App() {
     }
   };
 
-  // --- (၅) CATEGORY & PRODUCT GROUPINGS ---
-  const allCategories = useMemo(() => {
-    return [...new Set(products.map(p => getPProp(p, 'Category')).filter(Boolean))];
-  }, [products]);
-
-  const subCategories = useMemo(() => {
-    if (!selectedCat) return [];
-    return [...new Set(products
-      .filter(p => getPProp(p, 'Category').toLowerCase() === selectedCat.toLowerCase())
-      .map(p => getPProp(p, 'Sub Category'))
-      .filter(Boolean)
-    )];
-  }, [products, selectedCat]);
-
+  // --- (၅) GROUPING PRODUCTS DIRECTLY UNDER CATEGORIES ---
   const groupedProducts = useMemo(() => {
     const groups = {};
     products.forEach(p => {
-      const cat = getPProp(p, 'Category');
-      const subCat = getPProp(p, 'Sub Category');
       const name = getPProp(p, 'Name');
+      const cat = getPProp(p, 'Category');
+
+      if (!name) return;
 
       // Search Filter
-      if (searchTerm.trim()) {
-        if (name && name.toLowerCase().includes(searchTerm.toLowerCase())) {
-          if (!groups[name]) groups[name] = { name, category: cat, subCategory: subCat, image: getPProp(p, 'Link'), plans: [] };
-          groups[name].plans.push(p);
-        }
-        return;
-      }
+      const matchesSearch = searchTerm.trim() === '' || name.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      // Category Filter (All ဖြစ်လျှင် အကုန်ပြမည်၊ ရွေးထားလျှင် သက်ဆိုင်ရာသာပြမည်)
+      const matchesCategory = !selectedCat || cat.toLowerCase() === selectedCat.toLowerCase();
 
-      // Hierarchy Filter
-      if (selectedCat && cat.toLowerCase() === selectedCat.toLowerCase()) {
-        if (!selectedSubCat || (subCat && subCat.toLowerCase() === selectedSubCat.toLowerCase())) {
-          if (!groups[name]) groups[name] = { name, category: cat, subCategory: subCat, image: getPProp(p, 'Link'), plans: [] };
-          groups[name].plans.push(p);
+      if (matchesSearch && matchesCategory) {
+        if (!groups[name]) {
+          groups[name] = { 
+            name, 
+            category: cat, 
+            image: getPProp(p, 'Link'), 
+            plans: [] 
+          };
         }
+        groups[name].plans.push(p);
       }
     });
     return Object.values(groups);
-  }, [products, selectedCat, selectedSubCat, searchTerm]);
+  }, [products, searchTerm, selectedCat]);
 
   // --- (၆) UI COMPONENTS ---
   const MainHeader = () => (
     <header className="sticky top-0 z-40 bg-[#0a192f]/95 backdrop-blur-md border-b border-blue-900/30">
       <div className="flex items-center justify-between p-4">
-        <div className="flex items-center gap-2 cursor-pointer" onClick={() => { setSelectedCat(null); setSelectedSubCat(null); setSearchTerm(''); setView('home'); }}>
+        <div className="flex items-center gap-2 cursor-pointer" onClick={() => { setSelectedCat(null); setSearchTerm(''); setView('home'); }}>
           <img src={LOGO_URL} className="w-8 h-8 rounded-xl border border-blue-500/40 object-cover shadow-md" alt="Logo" onError={(e)=>{e.target.src=LOGO_URL;}} />
           <h1 className="text-base font-black text-white uppercase tracking-tight">MM Tech</h1>
         </div>
@@ -311,7 +291,7 @@ export default function App() {
         </span>
       </a>
 
-      {/* 📢 PROMOTION RUNNING TICKER (Settings Tab မှ ဖတ်ယူသော စာတန်း) */}
+      {/* 📢 PROMOTION RUNNING TICKER */}
       <div className="mx-4 mb-3 py-1.5 px-3 bg-[#112240]/80 rounded-xl border border-blue-900/40 flex items-center overflow-hidden">
         <div className="flex items-center gap-1 text-amber-400 shrink-0 font-black text-[9px] pr-2 border-r border-blue-900/60 mr-2 bg-[#112240] z-10">
           <Megaphone size={12} className="animate-pulse text-amber-400" /> PROMO
@@ -327,7 +307,7 @@ export default function App() {
 
   const BottomNav = () => (
     <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md md:max-w-5xl lg:max-w-screen-2xl bg-[#0a192f]/95 p-4 flex justify-around items-center z-50 rounded-t-3xl border-t border-blue-900/30 shadow-2xl backdrop-blur-md">
-      <button onClick={() => { setSelectedCat(null); setSelectedSubCat(null); setSearchTerm(''); setView('home'); }} className={`flex flex-col items-center gap-1 transition-all ${view === 'home' || view === 'subcats' || view === 'products' ? 'text-blue-500 scale-105' : 'text-slate-400'}`}>
+      <button onClick={() => { setSelectedCat(null); setSearchTerm(''); setView('home'); }} className={`flex flex-col items-center gap-1 transition-all ${view === 'home' ? 'text-blue-500 scale-105' : 'text-slate-400'}`}>
         <ShoppingBag size={22}/>
         <span className="text-[9px] font-bold">Store</span>
       </button>
@@ -367,7 +347,6 @@ export default function App() {
 
   return (
     <div className="bg-[#050d1a] min-h-screen text-white font-sans flex items-center justify-center p-0 md:p-4">
-      {/* CSS For Ticker Animation */}
       <style>{`
         @keyframes marquee {
           0% { transform: translateX(100%); }
@@ -399,7 +378,7 @@ export default function App() {
           </div>
         )}
 
-        {/* --- VIEW: HOME (Categories Selection + Search) --- */}
+        {/* --- VIEW: HOME (SCREENSHOT အတိုင်း CATEGORY + PRODUCTS တန်းပြမည့်နေရာ) --- */}
         {view === 'home' && (
           <>
             <MainHeader />
@@ -409,50 +388,59 @@ export default function App() {
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                 <input 
                   type="text" 
-                  placeholder="Search products (ပစ္စည်းအမည် ရိုက်ရှာပါ)..." 
+                  placeholder="Search products..." 
                   className="w-full bg-[#112240] border border-blue-900/30 py-3.5 pl-12 pr-4 rounded-2xl text-xs outline-none focus:border-blue-500 transition-all text-white" 
                   value={searchTerm} 
                   onChange={(e) => setSearchTerm(e.target.value)} 
                 />
               </div>
 
-              {/* ရှာဖွေနေပါက ရလဒ်များ တန်းပြမည် */}
-              {searchTerm.trim() ? (
-                <div>
-                  <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Search Results ({groupedProducts.length})</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3.5">
-                    {groupedProducts.map(group => (
-                      <div key={group.name} onClick={() => { setSelectedGroup(group); setView('group_details'); }} className="bg-[#112240]/60 p-3 rounded-2xl border border-blue-900/20 active:scale-95 transition-all hover:border-blue-500/40 cursor-pointer">
-                        <div className="aspect-square bg-[#0a192f] rounded-xl overflow-hidden mb-2.5">
-                          <img src={formatImg(group.image)} className="w-full h-full object-cover" alt={group.name} onError={(e)=>{e.target.src=LOGO_URL;}} />
-                        </div>
-                        <h4 className="text-[11px] font-black truncate text-white">{group.name}</h4>
-                        <p className="text-[9px] text-blue-400 font-bold truncate">{group.plans?.length || 1} Plans Available</p>
-                      </div>
-                    ))}
-                  </div>
+              {/* 🔘 Category Pills (Screenshot အတိုင်း အလျားလိုက် ရွေးချယ်မှု) */}
+              <div className="flex gap-2 overflow-x-auto no-scrollbar mb-6 pb-1">
+                <button 
+                  onClick={() => setSelectedCat(null)} 
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${!selectedCat ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30' : 'bg-[#112240] text-slate-300 hover:bg-[#152a4e]'}`}
+                >
+                  All
+                </button>
+                {[...new Set(products.map(p => getPProp(p, 'Category')).filter(Boolean))].map(cat => (
+                  <button 
+                    key={cat} 
+                    onClick={() => setSelectedCat(cat)} 
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${selectedCat === cat ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30' : 'bg-[#112240] text-slate-300 hover:bg-[#152a4e]'}`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+
+              {/* 📦 Products Grid (Category အောက်တွင် တန်းပေါ်နေမည့် ပစ္စည်းကတ်များ) */}
+              {groupedProducts.length === 0 ? (
+                <div className="text-center py-16 text-slate-500 text-xs">
+                  ပစ္စည်းများ ရှာမတွေ့သေးပါခင်ဗျာ။
                 </div>
               ) : (
-                /* Categories ရွေးချယ်မှု */
-                <div>
-                  <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-1.5">
-                    <Folder size={14} className="text-blue-400" /> Categories (ကဏ္ဍများ)
-                  </h3>
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3.5">
-                    {allCategories.map(cat => (
-                      <div 
-                        key={cat} 
-                        onClick={() => { setSelectedCat(cat); setView('subcats'); }} 
-                        className="bg-gradient-to-br from-[#112240] to-[#0d1b33] p-5 rounded-3xl border border-blue-900/30 hover:border-blue-500/40 active:scale-95 transition-all cursor-pointer flex flex-col justify-between h-28 group shadow-lg"
-                      >
-                        <div className="flex items-center justify-between">
-                          <Layers className="text-blue-400 group-hover:scale-110 transition-transform" size={24} />
-                          <ChevronRight className="text-slate-500 group-hover:text-blue-400 transition-colors" size={18} />
-                        </div>
-                        <h4 className="text-xs font-black text-white uppercase tracking-tight truncate">{cat}</h4>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3.5">
+                  {groupedProducts.map(group => (
+                    <div 
+                      key={group.name} 
+                      onClick={() => { setSelectedGroup(group); setView('group_details'); }} 
+                      className="bg-[#112240]/70 p-3 rounded-2xl border border-blue-900/20 active:scale-95 transition-all hover:border-blue-500/40 cursor-pointer shadow-md flex flex-col justify-between group"
+                    >
+                      <div className="aspect-square bg-[#0a192f] rounded-xl overflow-hidden mb-2.5">
+                        <img 
+                          src={formatImg(group.image)} 
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" 
+                          alt={group.name} 
+                          onError={(e)=>{e.target.src=LOGO_URL;}} 
+                        />
                       </div>
-                    ))}
-                  </div>
+                      <div>
+                        <h4 className="text-[11px] font-black truncate text-white uppercase">{group.name}</h4>
+                        <p className="text-[9px] text-blue-400 font-bold truncate mt-0.5">{group.plans?.length || 1} Plans Available</p>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
@@ -460,59 +448,12 @@ export default function App() {
           </>
         )}
 
-        {/* --- VIEW: SUB CATEGORIES --- */}
-        {view === 'subcats' && (
-          <div className="p-5 pb-36">
-            <MainHeader />
-            <div className="flex items-center gap-3 my-4">
-              <button onClick={() => { setSelectedCat(null); setView('home'); }} className="bg-[#112240] p-2 rounded-xl border border-blue-900/30 active:scale-90"><ArrowLeft size={18}/></button>
-              <h3 className="text-sm font-black uppercase tracking-tight text-white">{selectedCat} ➔ Sub Categories</h3>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {subCategories.map(sc => (
-                <div 
-                  key={sc} 
-                  onClick={() => { setSelectedSubCat(sc); setView('products'); }} 
-                  className="bg-[#112240] p-4 rounded-2xl border border-blue-900/30 flex justify-between items-center active:scale-[0.98] transition-all hover:border-blue-500/40 cursor-pointer shadow-md"
-                >
-                  <span className="text-xs font-black text-white">{sc}</span>
-                  <ChevronRight className="text-slate-400" size={16}/>
-                </div>
-              ))}
-            </div>
-            <BottomNav />
-          </div>
-        )}
-
-        {/* --- VIEW: PRODUCTS LIST --- */}
-        {view === 'products' && (
-          <div className="p-5 pb-36">
-            <MainHeader />
-            <div className="flex items-center gap-3 my-4">
-              <button onClick={() => setView('subcats')} className="bg-[#112240] p-2 rounded-xl border border-blue-900/30 active:scale-90"><ArrowLeft size={18}/></button>
-              <h3 className="text-sm font-black uppercase tracking-tight text-white">{selectedSubCat} ➔ Products</h3>
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3.5">
-              {groupedProducts.map(group => (
-                <div key={group.name} onClick={() => { setSelectedGroup(group); setView('group_details'); }} className="bg-[#112240]/60 p-3 rounded-2xl border border-blue-900/20 active:scale-95 transition-all hover:border-blue-500/40 cursor-pointer shadow-md">
-                  <div className="aspect-square bg-[#0a192f] rounded-xl overflow-hidden mb-2.5">
-                    <img src={formatImg(group.image)} className="w-full h-full object-cover" alt={group.name} onError={(e)=>{e.target.src=LOGO_URL;}} />
-                  </div>
-                  <h4 className="text-[11px] font-black truncate text-white">{group.name}</h4>
-                  <p className="text-[9px] text-blue-400 font-bold truncate">{group.plans?.length || 1} Plans Available</p>
-                </div>
-              ))}
-            </div>
-            <BottomNav />
-          </div>
-        )}
-
         {/* --- VIEW: GROUP DETAILS (PLANS SELECTION) --- */}
         {view === 'group_details' && (
           <div className="p-5 pb-36">
             <MainHeader />
             <div className="flex items-center gap-3 my-4">
-              <button onClick={() => setView(selectedSubCat ? 'products' : 'home')} className="bg-[#112240] p-2 rounded-xl border border-blue-900/30 active:scale-90"><ArrowLeft size={18}/></button>
+              <button onClick={() => setView('home')} className="bg-[#112240] p-2 rounded-xl border border-blue-900/30 active:scale-90"><ArrowLeft size={18}/></button>
               <h3 className="text-sm font-black uppercase tracking-tight text-white">{selectedGroup?.name}</h3>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
@@ -633,7 +574,7 @@ export default function App() {
                 <p className="text-blue-400 font-black text-2xl mt-0.5">{cart.reduce((s,i)=>s+parseInt(getPProp(i, 'Price') || 0), 0).toLocaleString()} Ks</p>
               </div>
 
-              {/* 📱 ဖုန်းနံပါတ် သီးသန့်တောင်းယူသည့် Input */}
+              {/* 📱 Phone Number Input */}
               <div className="mb-4">
                 <label className="text-[10px] font-black text-slate-400 uppercase mb-2 ml-1 flex items-center gap-1">
                   <Phone size={12} className="text-blue-400"/> ဆက်သွယ်ရမည့် ဖုန်းနံပါတ် *
@@ -749,7 +690,7 @@ export default function App() {
           </div>
         )}
 
-        {/* --- VIEW: CUSTOMER ORDERS HISTORY --- */}
+        {/* --- VIEW: CUSTOMER DASHBOARD --- */}
         {view === 'customer_dash' && (
           <div className="p-5 pb-36 flex-1 flex flex-col">
             <MainHeader />
@@ -839,7 +780,7 @@ export default function App() {
                         onChange={e => setDeliveryInputs({...deliveryInputs, [o.id]: e.target.value})} 
                       />
                       <div className="flex gap-2">
-                        <button onClick={() => updateOrderStatus(o.id, 'Completed', deliveryInputs[o.id] || "Completed")} className="flex-1 bg-green-600 py-2.5 rounded-xl font-black text-[10px] uppercase shadow-md active:scale-95 flex items-center justify-center gap-1">
+                        <button onClick={() => updateOrderStatus(o.id, 'Completed', deliveryInputs[o.id] || "Completed")} className="flex-1 bg-blue-600 py-2.5 rounded-xl font-black text-[10px] uppercase shadow-md active:scale-95 flex items-center justify-center gap-1">
                           <CheckCircle2 size={13}/> CONFIRM & SEND
                         </button>
                         <button onClick={() => updateOrderStatus(o.id, 'Failed', deliveryInputs[o.id] || "အချက်အလက် မမှန်ကန်ခြင်းကြောင့် အော်ဒါမအောင်မြင်ပါ။")} className="flex-1 bg-red-600 py-2.5 rounded-xl font-black text-[10px] uppercase shadow-md active:scale-95 flex items-center justify-center gap-1">
