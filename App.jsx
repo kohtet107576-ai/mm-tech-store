@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from 'firebase/auth';
-import { getFirestore, doc, setDoc, getDoc, collection, addDoc, onSnapshot, updateDoc, query, orderBy } from 'firebase/firestore';
+// where ကို ထပ်ထည့်ထားပါသည်
+import { getFirestore, doc, setDoc, getDoc, collection, addDoc, onSnapshot, updateDoc, query, orderBy, where } from 'firebase/firestore';
 import { 
   ShoppingBag, ArrowLeft, CheckCircle2, Loader2, User, ShieldCheck, 
   LogOut, Send, Image as ImageIcon, History, X, Search, ShoppingCart, 
@@ -57,13 +58,13 @@ export default function App() {
   const [selectedCat, setSelectedCat] = useState(null);
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [selectedPlan, setSelectedPlan] = useState(null);
-   
+    
   // Checkout States
   const [customerPhone, setCustomerPhone] = useState('');
   const [editContact, setEditContact] = useState('');
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [payImg, setPayImg] = useState("");
-   
+    
   // Search & Cart States
   const [searchTerm, setSearchTerm] = useState('');
   const [cart, setCart] = useState([]);
@@ -112,13 +113,27 @@ export default function App() {
 
   useEffect(() => {
     if (!user) return;
-    const qOrders = query(collection(db, 'artifacts', appId, 'public', 'data', 'orders'), orderBy('timestamp', 'desc'));
+    
+    // --- [Security Update] Admin နှင့် Customer အော်ဒါဆွဲပုံ ခွဲခြားထားခြင်း ---
+    const ordersRef = collection(db, 'artifacts', appId, 'public', 'data', 'orders');
+    let qOrders;
+
+    if (ADMIN_EMAILS.includes(user.email)) {
+      qOrders = query(ordersRef, orderBy('timestamp', 'desc'));
+    } else {
+      qOrders = query(ordersRef, where('userId', '==', user.uid), orderBy('timestamp', 'desc'));
+    }
+
     onSnapshot(qOrders, (sn) => {
       const docs = sn.docs.map(d => ({ id: d.id, ...d.data() }));
-      setAllOrders(docs); 
+      if (ADMIN_EMAILS.includes(user.email)) {
+        setAllOrders(docs); 
+      }
       setMyOrders(docs.filter(o => o && o.userId === user.uid));
+    }, (error) => {
+      console.error("Firebase Orders Fetch Error:", error);
     });
-     
+      
     const userRef = doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data');
     onSnapshot(userRef, (docSnap) => { 
       if(docSnap.exists()) {
@@ -129,17 +144,23 @@ export default function App() {
     });
   }, [user]);
 
-  // --- (၄) ORDER SUBMIT LOGIC (Stock & Validation Check အပြည့်အစုံ) ---
+  // --- (၄) ORDER SUBMIT LOGIC ---
   const handleOrder = async () => {
     if (!user) return setView('welcome');
     
     if (cart.length === 0) return alert("စျေးဝယ်လှည်းထဲတွင် ပစ္စည်းမရှိသေးပါခင်ဗျာ။");
     
-    // စျေးဝယ်လှည်းထဲက ပစ္စည်းတစ်ခုချင်းစီ Stock ပြတ်နေခြင်း ရှိမရှိ ထပ်မံစစ်ဆေးခြင်း
+    // --- [Stock Update] နောက်ဆုံးရ Stock နှင့် ပြန်လည်တိုက်စစ်ခြင်း ---
     for (const item of cart) {
-      const stockVal = String(getPProp(item, 'Stock') || "Available").trim();
+      const latestProduct = products.find(p => 
+        getPProp(p, 'Name') === getPProp(item, 'Name') && 
+        getPProp(p, 'Plan') === getPProp(item, 'Plan')
+      );
+      
+      const stockVal = String(getPProp(latestProduct || item, 'Stock') || "Available").trim();
+      
       if (stockVal === "0" || stockVal.toLowerCase() === "out of stock") {
-        return alert(`⚠️ "${getPProp(item, 'Name')} (${getPProp(item, 'Plan')})" မှာ လက်ရှိ ပစ္စည်းကုန်နေပါသဖြင့် အော်ဒါတင်၍ မရပါ။ ကျေးဇူးပြု၍ ဖယ်ရှားပေးပါ။`);
+        return alert(`⚠️ "${getPProp(item, 'Name')} (${getPProp(item, 'Plan')})" မှာ လက်ရှိ ပစ္စည်းကုန်နေပါသဖြင့် အော်ဒါတင်၍ မရပါ။ ကျေးဇူးပြု၍ စျေးဝယ်လှည်းထဲမှ ဖယ်ရှားပေးပါ။`);
       }
     }
 
@@ -174,7 +195,7 @@ export default function App() {
       const docRef = await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'orders'), { 
         ...orderData, 
         status: 'Pending',
-        result: '', // အစပိုင်းတွင် Result ကွက်လပ်ထားမည်
+        result: '', 
         timestamp: Date.now() 
       });
 
@@ -205,7 +226,6 @@ export default function App() {
     try {
       setLoading(true);
       const orderRef = doc(db, 'artifacts', appId, 'public', 'data', 'orders', orderId);
-      // Admin ဘက်မှ Completed သို့မဟုတ် Failed လုပ်လိုက်သည့် အကြောင်းရင်း (Result) ကိုပါ တခါတည်း သိမ်းမည်
       await updateDoc(orderRef, { status: newStatus, result: resultData });
 
       await fetch(SCRIPT_URL, {
@@ -499,7 +519,7 @@ export default function App() {
               <h3 className="text-xl font-black uppercase text-white mb-1">{getPProp(selectedPlan, 'Name')}</h3>
               <p className="text-xs text-slate-400 font-bold mb-2">{getPProp(selectedPlan, 'Plan')}</p>
               <p className="text-blue-400 text-2xl font-black mb-5">{parseInt(getPProp(selectedPlan, 'Price') || 0).toLocaleString()} Ks</p>
-               
+                
               {(getPProp(selectedPlan, 'TDes') || getPProp(selectedPlan, 'Des')) && (
                 <div className="p-4 bg-black/30 rounded-2xl text-[11px] text-slate-300 text-left mb-6 whitespace-pre-wrap leading-relaxed border border-blue-900/20">
                   {getPProp(selectedPlan, 'TDes') || getPProp(selectedPlan, 'Des')}
@@ -555,7 +575,7 @@ export default function App() {
                     </button>
                   </div>
                 ))}
-                 
+                  
                 <div className="mt-6 p-5 bg-[#112240] rounded-3xl border border-blue-500/20 shadow-xl">
                   <div className="flex justify-between items-center mb-5">
                     <span className="text-xs font-bold text-slate-400 uppercase">Total Amount</span>
@@ -691,7 +711,6 @@ export default function App() {
           </div>
         )}
 
-        {/* --- VIEW: CUSTOMER DASHBOARD (ပြေစာမမှန်၍ ကျရှုံးခြင်း/အောင်မြင်ခြင်း Result ပြသရန်) --- */}
         {view === 'customer_dash' && (
           <div className="p-5 pb-36 flex-1 flex flex-col">
             <MainHeader />
@@ -711,7 +730,6 @@ export default function App() {
                     <p className="text-[10px] text-blue-400 font-bold mb-1.5">{o.plan} • {parseInt(o.price || 0).toLocaleString()} Ks</p>
                     <p className="text-[9px] text-slate-400 mb-2">Date: {o.date}</p>
                     
-                    {/* Admin ဘက်မှ အတည်ပြုသည်ဖြစ်စေ၊ ငြင်းပယ်သည်ဖြစ်စေ (Failed / Completed) ရှင်းလင်းချက် Result ပြသခြင်း */}
                     {o.result ? (
                       <div className={`mt-3 p-3 rounded-2xl text-[10px] whitespace-pre-wrap ${o.status === 'Completed' ? 'bg-green-500/10 text-green-300 border border-green-500/20' : 'bg-red-500/10 text-red-300 border border-red-500/20'}`}>
                         <b>{o.status === 'Completed' ? '🎉 Result / Delivered Details:' : '❌ အော်ဒါကျရှုံးရသည့် အကြောင်းရင်း (Rejected Reason):'}</b><br/>
@@ -762,7 +780,7 @@ export default function App() {
                       {o.status}
                     </span>
                   </div>
-                   
+                    
                   <div className="bg-black/30 p-3.5 rounded-2xl text-[11px] text-slate-300 mb-3 whitespace-pre-wrap border border-blue-900/20">
                     <b>Customer:</b> {o.userName} ({o.userGmail})<br/>
                     <b>Phone:</b> {o.userPhone}<br/>
