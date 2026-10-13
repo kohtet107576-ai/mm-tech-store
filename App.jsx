@@ -57,13 +57,13 @@ export default function App() {
   const [selectedCat, setSelectedCat] = useState(null);
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [selectedPlan, setSelectedPlan] = useState(null);
-  
+   
   // Checkout States
   const [customerPhone, setCustomerPhone] = useState('');
   const [editContact, setEditContact] = useState('');
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [payImg, setPayImg] = useState("");
-  
+   
   // Search & Cart States
   const [searchTerm, setSearchTerm] = useState('');
   const [cart, setCart] = useState([]);
@@ -96,7 +96,6 @@ export default function App() {
       setView('home'); 
     });
 
-    // Google Sheets မှ Products နှင့် Announcement စာတန်းပြေး ဆွဲယူခြင်း (Safe Fetching)
     fetch(SCRIPT_URL)
       .then(res => res.json())
       .then(data => {
@@ -119,7 +118,7 @@ export default function App() {
       setAllOrders(docs); 
       setMyOrders(docs.filter(o => o && o.userId === user.uid));
     });
-    
+     
     const userRef = doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data');
     onSnapshot(userRef, (docSnap) => { 
       if(docSnap.exists()) {
@@ -130,13 +129,22 @@ export default function App() {
     });
   }, [user]);
 
-  // --- (၄) ORDER SUBMIT LOGIC ---
+  // --- (၄) ORDER SUBMIT LOGIC (Stock & Validation Check အပြည့်အစုံ) ---
   const handleOrder = async () => {
     if (!user) return setView('welcome');
     
+    if (cart.length === 0) return alert("စျေးဝယ်လှည်းထဲတွင် ပစ္စည်းမရှိသေးပါခင်ဗျာ။");
+    
+    // စျေးဝယ်လှည်းထဲက ပစ္စည်းတစ်ခုချင်းစီ Stock ပြတ်နေခြင်း ရှိမရှိ ထပ်မံစစ်ဆေးခြင်း
+    for (const item of cart) {
+      const stockVal = String(getPProp(item, 'Stock') || "Available").trim();
+      if (stockVal === "0" || stockVal.toLowerCase() === "out of stock") {
+        return alert(`⚠️ "${getPProp(item, 'Name')} (${getPProp(item, 'Plan')})" မှာ လက်ရှိ ပစ္စည်းကုန်နေပါသဖြင့် အော်ဒါတင်၍ မရပါ။ ကျေးဇူးပြု၍ ဖယ်ရှားပေးပါ။`);
+      }
+    }
+
     const totalPrice = cart.reduce((s, i) => s + parseInt(getPProp(i, 'Price') || 0), 0);
 
-    if (cart.length === 0) return alert("စျေးဝယ်လှည်းထဲတွင် ပစ္စည်းမရှိသေးပါခင်ဗျာ။");
     if (!customerPhone.trim() || customerPhone.length < 8) return alert("ဆက်သွယ်ရမည့် ဖုန်းနံပါတ်ကို သေချာစွာ ဖြည့်သွင်းပေးပါခင်ဗျာ။");
     if (!editContact.trim()) return alert("လိုအပ်သော အချက်အလက်များ (ID / Pass / Game ID) အပြည့်အစုံ ဖြည့်ပေးပါဗျ။");
     if (!selectedPayment) return alert("ငွေလွှဲပေးချေမည့် ဘဏ်အကောင့်ကို ရွေးချယ်ပေးပါဗျ။");
@@ -165,7 +173,8 @@ export default function App() {
 
       const docRef = await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'orders'), { 
         ...orderData, 
-        status: 'Pending', 
+        status: 'Pending',
+        result: '', // အစပိုင်းတွင် Result ကွက်လပ်ထားမည်
         timestamp: Date.now() 
       });
 
@@ -196,6 +205,7 @@ export default function App() {
     try {
       setLoading(true);
       const orderRef = doc(db, 'artifacts', appId, 'public', 'data', 'orders', orderId);
+      // Admin ဘက်မှ Completed သို့မဟုတ် Failed လုပ်လိုက်သည့် အကြောင်းရင်း (Result) ကိုပါ တခါတည်း သိမ်းမည်
       await updateDoc(orderRef, { status: newStatus, result: resultData });
 
       await fetch(SCRIPT_URL, {
@@ -226,10 +236,7 @@ export default function App() {
 
       if (!name) return;
 
-      // Search Filter
       const matchesSearch = searchTerm.trim() === '' || name.toLowerCase().includes(searchTerm.toLowerCase());
-      
-      // Category Filter (All ဖြစ်လျှင် အကုန်ပြမည်၊ ရွေးထားလျှင် သက်ဆိုင်ရာသာပြမည်)
       const matchesCategory = !selectedCat || cat.toLowerCase() === selectedCat.toLowerCase();
 
       if (matchesSearch && matchesCategory) {
@@ -270,7 +277,6 @@ export default function App() {
         </div>
       </div>
 
-      {/* 🚀 TELEGRAM BOT BANNER */}
       <a 
         href={TG_BOT_URL} 
         target="_blank" 
@@ -291,7 +297,6 @@ export default function App() {
         </span>
       </a>
 
-      {/* 📢 PROMOTION RUNNING TICKER */}
       <div className="mx-4 mb-3 py-1.5 px-3 bg-[#112240]/80 rounded-xl border border-blue-900/40 flex items-center overflow-hidden">
         <div className="flex items-center gap-1 text-amber-400 shrink-0 font-black text-[9px] pr-2 border-r border-blue-900/60 mr-2 bg-[#112240] z-10">
           <Megaphone size={12} className="animate-pulse text-amber-400" /> PROMO
@@ -365,7 +370,6 @@ export default function App() {
       <div className="w-full max-w-md md:max-w-5xl lg:max-w-screen-2xl mx-auto min-h-[100dvh] md:min-h-[92vh] flex flex-col relative bg-[#0a192f] md:rounded-[2.5rem] border-x border-blue-900/20 shadow-2xl overflow-x-hidden md:border-y">
         <SocialPopup />
 
-        {/* --- VIEW: WELCOME / LOGIN --- */}
         {view === 'welcome' && (
           <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-[#0a192f] z-[60]">
             <img src={LOGO_URL} className="w-20 h-20 mb-6 rounded-3xl shadow-2xl border border-blue-500/30 object-cover" alt="Logo" onError={(e)=>{e.target.src=LOGO_URL;}} />
@@ -378,12 +382,10 @@ export default function App() {
           </div>
         )}
 
-        {/* --- VIEW: HOME (SCREENSHOT အတိုင်း CATEGORY + PRODUCTS တန်းပြမည့်နေရာ) --- */}
         {view === 'home' && (
           <>
             <MainHeader />
             <div className="p-5 pb-36">
-              {/* Search Bar */}
               <div className="relative mb-5">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                 <input 
@@ -395,7 +397,6 @@ export default function App() {
                 />
               </div>
 
-              {/* 🔘 Category Pills (Screenshot အတိုင်း အလျားလိုက် ရွေးချယ်မှု) */}
               <div className="flex gap-2 overflow-x-auto no-scrollbar mb-6 pb-1">
                 <button 
                   onClick={() => setSelectedCat(null)} 
@@ -414,7 +415,6 @@ export default function App() {
                 ))}
               </div>
 
-              {/* 📦 Products Grid (Category အောက်တွင် တန်းပေါ်နေမည့် ပစ္စည်းကတ်များ) */}
               {groupedProducts.length === 0 ? (
                 <div className="text-center py-16 text-slate-500 text-xs">
                   ပစ္စည်းများ ရှာမတွေ့သေးပါခင်ဗျာ။
@@ -448,7 +448,6 @@ export default function App() {
           </>
         )}
 
-        {/* --- VIEW: GROUP DETAILS (PLANS SELECTION) --- */}
         {view === 'group_details' && (
           <div className="p-5 pb-36">
             <MainHeader />
@@ -463,8 +462,15 @@ export default function App() {
                 return (
                   <div 
                     key={i} 
-                    onClick={() => { if(!isOutOfStock) { setSelectedPlan(p); setView('plan_details'); } }} 
-                    className={`bg-[#112240] p-4 rounded-3xl border border-blue-900/30 flex justify-between items-center transition-all ${isOutOfStock ? 'opacity-50 cursor-not-allowed' : 'active:scale-[0.98] hover:border-blue-500/40 cursor-pointer shadow-md'}`}
+                    onClick={() => { 
+                      if(isOutOfStock) {
+                        alert("⚠️ ဤ Plan မှာ လက်ရှိ ပစ္စည်းကုန်နေပါသည် (Out of Stock)။");
+                      } else { 
+                        setSelectedPlan(p); 
+                        setView('plan_details'); 
+                      } 
+                    }} 
+                    className={`bg-[#112240] p-4 rounded-3xl border border-blue-900/30 flex justify-between items-center transition-all ${isOutOfStock ? 'opacity-50 cursor-not-allowed bg-red-950/10 border-red-900/30' : 'active:scale-[0.98] hover:border-blue-500/40 cursor-pointer shadow-md'}`}
                   >
                     <div>
                       <p className="text-xs font-black text-white">{getPProp(p, 'Plan')}</p>
@@ -484,7 +490,6 @@ export default function App() {
           </div>
         )}
 
-        {/* --- VIEW: PLAN DETAILS (ADD TO CART) --- */}
         {view === 'plan_details' && selectedPlan && (
           <div className="p-5 pb-36">
             <MainHeader />
@@ -494,7 +499,7 @@ export default function App() {
               <h3 className="text-xl font-black uppercase text-white mb-1">{getPProp(selectedPlan, 'Name')}</h3>
               <p className="text-xs text-slate-400 font-bold mb-2">{getPProp(selectedPlan, 'Plan')}</p>
               <p className="text-blue-400 text-2xl font-black mb-5">{parseInt(getPProp(selectedPlan, 'Price') || 0).toLocaleString()} Ks</p>
-              
+               
               {(getPProp(selectedPlan, 'TDes') || getPProp(selectedPlan, 'Des')) && (
                 <div className="p-4 bg-black/30 rounded-2xl text-[11px] text-slate-300 text-left mb-6 whitespace-pre-wrap leading-relaxed border border-blue-900/20">
                   {getPProp(selectedPlan, 'TDes') || getPProp(selectedPlan, 'Des')}
@@ -503,6 +508,10 @@ export default function App() {
 
               <button 
                 onClick={() => { 
+                  const stockVal = String(getPProp(selectedPlan, 'Stock') || "Available").trim();
+                  if (stockVal === "0" || stockVal.toLowerCase() === "out of stock") {
+                    return alert("⚠️ ဤပစ္စည်းမှာ Stock ကုန်နေပါသဖြင့် စျေးဝယ်လှည်းထဲသို့ ထည့်၍မရပါ။");
+                  }
                   if (!user) return setView('welcome'); 
                   setCart([...cart, selectedPlan]); 
                   setView('cart_view'); 
@@ -516,7 +525,6 @@ export default function App() {
           </div>
         )}
 
-        {/* --- VIEW: CART VIEW --- */}
         {view === 'cart_view' && (
           <div className="p-5 pb-36 flex flex-col flex-1">
             <MainHeader />
@@ -547,7 +555,7 @@ export default function App() {
                     </button>
                   </div>
                 ))}
-                
+                 
                 <div className="mt-6 p-5 bg-[#112240] rounded-3xl border border-blue-500/20 shadow-xl">
                   <div className="flex justify-between items-center mb-5">
                     <span className="text-xs font-bold text-slate-400 uppercase">Total Amount</span>
@@ -563,7 +571,6 @@ export default function App() {
           </div>
         )}
 
-        {/* --- VIEW: CHECKOUT --- */}
         {view === 'checkout' && (
           <div className="p-5 pb-36 overflow-y-auto no-scrollbar">
             <MainHeader />
@@ -574,7 +581,6 @@ export default function App() {
                 <p className="text-blue-400 font-black text-2xl mt-0.5">{cart.reduce((s,i)=>s+parseInt(getPProp(i, 'Price') || 0), 0).toLocaleString()} Ks</p>
               </div>
 
-              {/* 📱 Phone Number Input */}
               <div className="mb-4">
                 <label className="text-[10px] font-black text-slate-400 uppercase mb-2 ml-1 flex items-center gap-1">
                   <Phone size={12} className="text-blue-400"/> ဆက်သွယ်ရမည့် ဖုန်းနံပါတ် *
@@ -588,7 +594,6 @@ export default function App() {
                 />
               </div>
 
-              {/* Account/Order Info Textarea */}
               <div className="mb-6">
                 <label className="text-[10px] font-black text-slate-400 uppercase mb-2 ml-1 block">
                   လိုအပ်သော အချက်အလက် (ID, Password, Game ID, etc.) *
@@ -602,7 +607,6 @@ export default function App() {
                 />
               </div>
 
-              {/* Payment Method Selection */}
               <div className="mb-6">
                 <p className="text-[10px] font-black text-slate-400 uppercase mb-2.5 ml-1 tracking-widest">Payment Method</p>
                 <div className="grid grid-cols-4 gap-2">
@@ -632,7 +636,6 @@ export default function App() {
                 )}
               </div>
 
-              {/* Screenshot Receipt Upload */}
               <div className="mb-8">
                 <p className="text-[10px] font-black text-slate-400 uppercase mb-2 ml-1 tracking-widest">Payment Receipt *</p>
                 <div className="w-full aspect-video bg-[#112240] rounded-3xl border-2 border-dashed border-blue-900/40 flex items-center justify-center relative overflow-hidden group">
@@ -662,7 +665,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Confirm Order Button */}
               <button 
                 onClick={handleOrder} 
                 disabled={loading || !payImg || !selectedPayment || !customerPhone.trim()} 
@@ -675,7 +677,6 @@ export default function App() {
           </div>
         )}
 
-        {/* --- VIEW: ORDER SUCCESS --- */}
         {view === 'order_success' && (
           <div className="p-8 pb-36 flex-1 flex flex-col items-center justify-center text-center">
             <CheckCircle2 size={70} className="text-green-400 mb-5 animate-bounce" />
@@ -690,7 +691,7 @@ export default function App() {
           </div>
         )}
 
-        {/* --- VIEW: CUSTOMER DASHBOARD --- */}
+        {/* --- VIEW: CUSTOMER DASHBOARD (ပြေစာမမှန်၍ ကျရှုံးခြင်း/အောင်မြင်ခြင်း Result ပြသရန်) --- */}
         {view === 'customer_dash' && (
           <div className="p-5 pb-36 flex-1 flex flex-col">
             <MainHeader />
@@ -708,11 +709,17 @@ export default function App() {
                       </span>
                     </div>
                     <p className="text-[10px] text-blue-400 font-bold mb-1.5">{o.plan} • {parseInt(o.price || 0).toLocaleString()} Ks</p>
-                    <p className="text-[9px] text-slate-400">Date: {o.date}</p>
-                    {o.result && (
+                    <p className="text-[9px] text-slate-400 mb-2">Date: {o.date}</p>
+                    
+                    {/* Admin ဘက်မှ အတည်ပြုသည်ဖြစ်စေ၊ ငြင်းပယ်သည်ဖြစ်စေ (Failed / Completed) ရှင်းလင်းချက် Result ပြသခြင်း */}
+                    {o.result ? (
                       <div className={`mt-3 p-3 rounded-2xl text-[10px] whitespace-pre-wrap ${o.status === 'Completed' ? 'bg-green-500/10 text-green-300 border border-green-500/20' : 'bg-red-500/10 text-red-300 border border-red-500/20'}`}>
-                        <b>{o.status === 'Completed' ? 'Result / Details:' : 'မအောင်မြင်ရသည့် အကြောင်းရင်း:'}</b><br/>
+                        <b>{o.status === 'Completed' ? '🎉 Result / Delivered Details:' : '❌ အော်ဒါကျရှုံးရသည့် အကြောင်းရင်း (Rejected Reason):'}</b><br/>
                         {o.result}
+                      </div>
+                    ) : (
+                      <div className="mt-2 p-2 rounded-xl bg-yellow-500/10 border border-yellow-500/20 text-[9px] text-yellow-300">
+                        ⏳ Admin မှ ငွေလွှဲပြေစာအား စစ်ဆေးဆဲ ဖြစ်ပါသည်...
                       </div>
                     )}
                   </div>
@@ -723,7 +730,6 @@ export default function App() {
           </div>
         )}
 
-        {/* --- VIEW: PROFILE --- */}
         {view === 'profile' && user && (
           <div className="p-5 pb-36 flex-1 flex flex-col items-center">
             <MainHeader />
@@ -740,7 +746,6 @@ export default function App() {
           </div>
         )}
 
-        {/* --- VIEW: ADMIN DASHBOARD --- */}
         {view === 'admin_dash' && profile?.role === 'admin' && (
           <div className="p-5 pb-36 flex-1 flex flex-col">
             <MainHeader />
@@ -757,9 +762,10 @@ export default function App() {
                       {o.status}
                     </span>
                   </div>
-                  
+                   
                   <div className="bg-black/30 p-3.5 rounded-2xl text-[11px] text-slate-300 mb-3 whitespace-pre-wrap border border-blue-900/20">
                     <b>Customer:</b> {o.userName} ({o.userGmail})<br/>
+                    <b>Phone:</b> {o.userPhone}<br/>
                     <b>Payment:</b> {o.paymentMethod}<br/><br/>
                     <b>Details:</b><br/>{o.contact}
                   </div>
@@ -774,7 +780,7 @@ export default function App() {
                     <div className="flex flex-col gap-2">
                       <textarea 
                         rows="2" 
-                        placeholder="Deliver details (Gmail, Pass, Codes) OR failure reason..." 
+                        placeholder="Deliver details (Gmail, Pass, Codes) OR failure reason (e.g. ပြေစာမမှန်ပါ / ငွေမဝင်သေးပါ)..." 
                         className="w-full bg-[#0a192f] p-3 rounded-xl text-[10px] outline-none border border-blue-900/30 focus:border-blue-500 text-white" 
                         value={deliveryInputs[o.id] || ''} 
                         onChange={e => setDeliveryInputs({...deliveryInputs, [o.id]: e.target.value})} 
@@ -783,7 +789,7 @@ export default function App() {
                         <button onClick={() => updateOrderStatus(o.id, 'Completed', deliveryInputs[o.id] || "Completed")} className="flex-1 bg-blue-600 py-2.5 rounded-xl font-black text-[10px] uppercase shadow-md active:scale-95 flex items-center justify-center gap-1">
                           <CheckCircle2 size={13}/> CONFIRM & SEND
                         </button>
-                        <button onClick={() => updateOrderStatus(o.id, 'Failed', deliveryInputs[o.id] || "အချက်အလက် မမှန်ကန်ခြင်းကြောင့် အော်ဒါမအောင်မြင်ပါ။")} className="flex-1 bg-red-600 py-2.5 rounded-xl font-black text-[10px] uppercase shadow-md active:scale-95 flex items-center justify-center gap-1">
+                        <button onClick={() => updateOrderStatus(o.id, 'Failed', deliveryInputs[o.id] || "ငွေလွှဲပြေစာ မမှန်ကန်ပါ သို့မဟုတ် ငွေလွှဲမှု မအောင်မြင်ပါ။")} className="flex-1 bg-red-600 py-2.5 rounded-xl font-black text-[10px] uppercase shadow-md active:scale-95 flex items-center justify-center gap-1">
                           <X size={13}/> MARK AS FAILED
                         </button>
                       </div>
