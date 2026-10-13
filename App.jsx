@@ -15,7 +15,7 @@ const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzoh8JlU-qE9je0M0sfP
 const API_SECRET = "MMTech_Secure_Token_50056444"; 
 const IMGBB_API_KEY = "88d3b49cfcf4fa4b1e77ce493aa3172a";
 const ADMIN_EMAILS = ["kohtet107576@gmail.com"]; 
-const TG_BOT_URL = "https://t.me/mmtech19";
+const TG_BOT_URL = "https://t.me/mmtechmdy_bot";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCBWTPAr0xWwpN9ASinAQWK_incw8kD-v4",
