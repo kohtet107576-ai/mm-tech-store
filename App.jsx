@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { initializeApp } from 'firebase/app';
-import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from 'firebase/auth';
-// where ကို ထပ်ထည့်ထားပါသည်
+// ✅ signInWithRedirect သို့ ပြောင်းလဲအသုံးပြုထားသည်
+import { getAuth, signInWithRedirect, GoogleAuthProvider, onAuthStateChanged, signOut } from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, collection, addDoc, onSnapshot, updateDoc, query, orderBy, where } from 'firebase/firestore';
 import { 
   ShoppingBag, ArrowLeft, CheckCircle2, Loader2, User, ShieldCheck, 
@@ -73,6 +73,7 @@ export default function App() {
 
   // --- (၃) PROFILE & DATA SYNC ---
   const syncProfile = useCallback(async (u) => {
+    if (!u || !u.uid) return;
     const docRef = doc(db, 'artifacts', appId, 'users', u.uid, 'profile', 'data');
     try {
       const docSnap = await getDoc(docRef);
@@ -87,16 +88,25 @@ export default function App() {
       await setDoc(docRef, pData, { merge: true });
       setProfile(pData);
       if (pData.phone) setCustomerPhone(pData.phone);
-    } catch (e) { console.error(e); }
+    } catch (e) { 
+      console.error("Profile Sync Error:", e); 
+    }
   }, []);
 
   useEffect(() => {
-    onAuthStateChanged(auth, async (u) => {
-      if (u) { setUser(u); await syncProfile(u); } 
-      else { setUser(null); setProfile(null); }
+    // ✅ Auth State နားထောင်ခြင်း
+    const unsubscribeAuth = onAuthStateChanged(auth, async (u) => {
+      if (u) { 
+        setUser(u); 
+        await syncProfile(u); 
+      } else { 
+        setUser(null); 
+        setProfile(null); 
+      }
       setView('home'); 
     });
 
+    // 🌐 ထုတ်ကုန်စာရင်း ရယူခြင်း (Error Handling အပါအဝင်)
     fetch(SCRIPT_URL)
       .then(res => res.json())
       .then(data => {
@@ -108,13 +118,18 @@ export default function App() {
           if (data.announcement) setAnnouncement(data.announcement);
         }
       })
-      .catch(err => console.error("Sheet Fetch Error:", err));
+      .catch(err => {
+        console.error("Sheet Fetch Error:", err);
+        setProducts([]); // Fallback to empty to prevent UI breaks
+      });
+
+    return () => unsubscribeAuth();
   }, [syncProfile]);
 
   useEffect(() => {
     if (!user) return;
     
-    // --- [Security Update] Admin နှင့် Customer အော်ဒါဆွဲပုံ ခွဲခြားထားခြင်း ---
+    // ✅ Firestore ကို ခေါ်ယူရာတွင် Memory Leak မဖြစ်စေရန် Unsubscribe ထည့်သွင်းခြင်း
     const ordersRef = collection(db, 'artifacts', appId, 'public', 'data', 'orders');
     let qOrders;
 
@@ -124,7 +139,7 @@ export default function App() {
       qOrders = query(ordersRef, where('userId', '==', user.uid), orderBy('timestamp', 'desc'));
     }
 
-    onSnapshot(qOrders, (sn) => {
+    const unsubscribeOrders = onSnapshot(qOrders, (sn) => {
       const docs = sn.docs.map(d => ({ id: d.id, ...d.data() }));
       if (ADMIN_EMAILS.includes(user.email)) {
         setAllOrders(docs); 
@@ -135,22 +150,26 @@ export default function App() {
     });
       
     const userRef = doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data');
-    onSnapshot(userRef, (docSnap) => { 
+    const unsubscribeUser = onSnapshot(userRef, (docSnap) => { 
       if(docSnap.exists()) {
         const d = docSnap.data();
         setProfile(d);
         if (d.phone) setCustomerPhone(d.phone);
       } 
     });
+
+    return () => {
+      unsubscribeOrders();
+      unsubscribeUser();
+    };
   }, [user]);
 
   // --- (၄) ORDER SUBMIT LOGIC ---
   const handleOrder = async () => {
     if (!user) return setView('welcome');
-    
     if (cart.length === 0) return alert("စျေးဝယ်လှည်းထဲတွင် ပစ္စည်းမရှိသေးပါခင်ဗျာ။");
     
-    // --- [Stock Update] နောက်ဆုံးရ Stock နှင့် ပြန်လည်တိုက်စစ်ခြင်း ---
+    // ✅ Stock အချိန်နှင့်တစ်ပြေးညီ စစ်ဆေးခြင်း
     for (const item of cart) {
       const latestProduct = products.find(p => 
         getPProp(p, 'Name') === getPProp(item, 'Name') && 
@@ -199,6 +218,7 @@ export default function App() {
         timestamp: Date.now() 
       });
 
+      // GAS Webhook သို့ လှမ်းပို့ခြင်း (Fail သော်လည်း အော်ဒါဝင်မည်)
       await fetch(SCRIPT_URL, { 
         method: "POST", 
         mode: "no-cors", 
@@ -208,7 +228,7 @@ export default function App() {
           type: "new_order", 
           orderId: docRef.id 
         }) 
-      });
+      }).catch(e => console.error("GAS Push Error:", e));
 
       setCart([]); 
       setPayImg(""); 
@@ -395,7 +415,8 @@ export default function App() {
             <img src={LOGO_URL} className="w-20 h-20 mb-6 rounded-3xl shadow-2xl border border-blue-500/30 object-cover" alt="Logo" onError={(e)=>{e.target.src=LOGO_URL;}} />
             <h2 className="text-3xl font-black mb-2 tracking-tight uppercase">MM Tech</h2>
             <p className="text-slate-400 text-xs mb-10 font-bold tracking-widest uppercase">Sign in to complete order</p>
-            <button onClick={() => signInWithPopup(auth, googleProvider)} className="w-full max-w-xs bg-white text-black py-4 rounded-2xl font-black shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2">
+            {/* ✅ Redirect သို့ ပြောင်းလဲထားသော Login Button */}
+            <button onClick={() => signInWithRedirect(auth, googleProvider)} className="w-full max-w-xs bg-white text-black py-4 rounded-2xl font-black shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2">
               Continue with Google
             </button>
             <button onClick={() => setView('home')} className="mt-6 text-blue-400 text-xs font-black uppercase tracking-widest">Back to Store</button>
