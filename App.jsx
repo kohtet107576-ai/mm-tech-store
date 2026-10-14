@@ -20,7 +20,7 @@ const TG_BOT_URL = "https://t.me/mmtechmdy_bot";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCBWTPAr0xWwpN9ASinAQWK_incw8kD-v4",
-  authDomain: "mm-tech-store.firebaseapp.com",
+  authDomain: "mm-tech-store.firebaseapp.com","mmtechmdy.shop"
   projectId: "mm-tech-store",
   storageBucket: "mm-tech-store.firebasestorage.app",
   messagingSenderId: "719292118752",
