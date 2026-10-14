@@ -12,7 +12,7 @@ import {
 // --- (၁) CONFIGURATION ---
 const LOGO_URL = "https://drive.google.com/thumbnail?id=1Lh-nHgyLMSr3rBVe4OGnjEvEspuMokd6&sz=w1000"; 
 // 🔴 အောက်ပါ SCRIPT_URL နေရာတွင် Google Apps Script အသစ် Deploy လုပ်၍ရလာသော URL အသစ်ကို ထည့်ပါ
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzoh8JlU-qE9je0M0sfPSM2k4qauwjsXvsdcQSmKc-gTBr_UuHAeYZ3_TnqTgiHySdS/exec"; 
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxpw0tF64ZhwPS8xu2KZwrz2kf1lvzFFy1cg9OF2iZq56G9EaM6VYJ6VfjhP1z7oQmm/exec"; 
 
 const API_SECRET = process.env.REACT_APP_API_SECRET || "MMTech_Secure_Token_50056444"; 
 const IMGBB_API_KEY = process.env.REACT_APP_IMGBB_API_KEY || "88d3b49cfcf4fa4b1e77ce493aa3172a";
