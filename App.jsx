@@ -12,7 +12,7 @@ import {
 
 // --- (၁) CONFIGURATION ---
 const LOGO_URL = "https://drive.google.com/thumbnail?id=1Lh-nHgyLMSr3rBVe4OGnjEvEspuMokd6&sz=w1000"; 
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby04QSSjdWmhCY5lKGIZklGlKzepRBW8jhHnGS0UndA0MByZR4dr1Q8mclypgd9SG5N/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwX2KiKvFx-xpDVMeJR0vC2SkWQIgjihTo1LxVYbckLTnFoSdKZcrqXPoReHlA6pgT8/exec";
 const API_SECRET = "MMTech_Secure_Token_50056444"; 
 const IMGBB_API_KEY = "88d3b49cfcf4fa4b1e77ce493aa3172a";
 const ADMIN_EMAILS = ["kohtet107576@gmail.com"]; 
@@ -437,7 +437,7 @@ export default function App() {
 
               {groupedProducts.length === 0 ? (
                 <div className="text-center py-16 text-slate-500 text-xs">
-                  ပစ္စည်းများ ရှာမတွေ့သေးပါခင်ဗျာ။
+                  ပစ္စည်းများစာရင်း update လုပ်နေပါသဖြင့် ခဏ စောင့်ပေးပါရှင့်။
                 </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3.5">
