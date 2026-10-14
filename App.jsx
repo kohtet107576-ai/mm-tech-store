@@ -12,7 +12,7 @@ import {
 
 // --- (၁) CONFIGURATION ---
 const LOGO_URL = "https://drive.google.com/thumbnail?id=1Lh-nHgyLMSr3rBVe4OGnjEvEspuMokd6&sz=w1000"; 
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwcv5nuxhegZteGQn48wgcglf3YwCraAK9mDBlGQ2pw9xOZQX5djX7Z_kpqWsXCMewy/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby7p6Et94qrSPDttECRdshuCA5tfeG7L6XGo9bpgMaMSCb1n1Wgn7Rk9M1SGjwckBkn/exec";
 const API_SECRET = "MMTech_Secure_Token_50056444"; 
 const IMGBB_API_KEY = "88d3b49cfcf4fa4b1e77ce493aa3172a";
 const ADMIN_EMAILS = ["kohtet107576@gmail.com"]; 
