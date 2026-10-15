@@ -21,12 +21,12 @@ const TG_BOT_URL = "https://t.me/mmtech19";
 
 // 🟢 Firebase Config
 const firebaseConfig = {
-  apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
-  authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.REACT_APP_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.REACT_APP_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.REACT_APP_FIREBASE_APP_ID
+  apiKey: process.env.REACT_APP_FIREBASE_API_KEY || "AIzaSyCBWTPAr0xWwpN9ASinAQWK_incw8kD-v4",
+  authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN || "mm-tech-store.firebaseapp.com",
+  projectId: process.env.REACT_APP_FIREBASE_PROJECT_ID || "mm-tech-store",
+  storageBucket: process.env.REACT_APP_FIREBASE_STORAGE_BUCKET || "mm-tech-store.firebasestorage.app",
+  messagingSenderId: process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID || "719292118752",
+  appId: process.env.REACT_APP_FIREBASE_APP_ID || "1:719292118752:web:5cd87e7bb4d4582884c285"
 };
 
 const app = initializeApp(firebaseConfig);
