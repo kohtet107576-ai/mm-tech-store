@@ -12,7 +12,7 @@ import {
 // --- (၁) CONFIGURATION ---
 const LOGO_URL = "https://drive.google.com/thumbnail?id=1Lh-nHgyLMSr3rBVe4OGnjEvEspuMokd6&sz=w1000"; 
 // 🔴 အောက်ပါ SCRIPT_URL နေရာတွင် GAS Deploy လုပ်၍ ရလာသော URL အသစ်ကို အစားထိုးပါ
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzLgP0eU-3NzgHC_FjQ_Plg7oaB-0nPLgUBnxa8tjv3NfgJNq1NKwcO4oWMFg78Hhga/exec"; 
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwHTn9ROfzNUroCtKDUEAdz07Qd7BEkMAwy7fpCXBxP665umrCV6RNE5Ndzxdtm9IMj/exec"; 
 
 const API_SECRET = process.env.REACT_APP_API_SECRET || "MMTech_Secure_Token_50056444"; 
 const IMGBB_API_KEY = process.env.REACT_APP_IMGBB_API_KEY || "88d3b49cfcf4fa4b1e77ce493aa3172a";
