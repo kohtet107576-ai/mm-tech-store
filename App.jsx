@@ -11,7 +11,7 @@ import {
 
 // --- (၁) CONFIGURATION ---
 const LOGO_URL = "https://drive.google.com/thumbnail?id=1Lh-nHgyLMSr3rBVe4OGnjEvEspuMokd6&sz=w1000"; 
-// 🔴 အောက်ပါ SCRIPT_URL နေရာတွင် GAS Deploy လုပ်၍ ရလာသော URL အသစ်ကို အစားထိုးပါ
+// 🔴 GAS Script URL အသစ်
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwHTn9ROfzNUroCtKDUEAdz07Qd7BEkMAwy7fpCXBxP665umrCV6RNE5Ndzxdtm9IMj/exec"; 
 
 const API_SECRET = process.env.REACT_APP_API_SECRET || "MMTech_Secure_Token_50056444"; 
@@ -19,7 +19,7 @@ const IMGBB_API_KEY = process.env.REACT_APP_IMGBB_API_KEY || "88d3b49cfcf4fa4b1e
 const ADMIN_EMAILS = ["kohtet107576@gmail.com"]; 
 const TG_BOT_URL = "https://t.me/mmtech19";
 
-// 🟢 Firebase Config
+// 🟢 Firebase Config (Vercel မှ မရခဲ့လျှင် Error မတက်စေရန် Fallback များ ထည့်ထားသည်)
 const firebaseConfig = {
   apiKey: process.env.REACT_APP_FIREBASE_API_KEY || "AIzaSyCBWTPAr0xWwpN9ASinAQWK_incw8kD-v4",
   authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN || "mm-tech-store.firebaseapp.com",
@@ -84,7 +84,7 @@ export default function App() {
   const [isSocialOpen, setIsSocialOpen] = useState(false);
   const [deliveryInputs, setDeliveryInputs] = useState({});
 
-// --- (၃) PROFILE & DATA SYNC ---
+  // --- (၃) PROFILE & DATA SYNC ---
   const syncProfile = useCallback(async (u) => {
     const docRef = doc(db, 'artifacts', appId, 'users', u.uid, 'profile', 'data');
     try {
@@ -121,12 +121,12 @@ export default function App() {
         }
       })
       .catch(err => console.error("Sheet Fetch Error:", err));
-  }, [syncProfile]); // 🟢 ဒီနေရာမှာ Unexpected "," Error ရှင်းသွားပါမည်
+  }, [syncProfile]);
 
   useEffect(() => {
     if (!user) return;
     
-    // 🟢 Admin ဆိုလျှင် အကုန်ဆွဲယူမည်၊ User ဆိုလျှင် မိမိအော်ဒါသာ ဆွဲယူမည် (Firebase Security Rule နှင့် ကိုက်ညီစေရန်)
+    // 🟢 Firebase Rule နှင့် ကိုက်ညီစေရန် Admin နှင့် User အော်ဒါ ဆွဲယူမှု ခွဲခြားခြင်း
     let qOrders;
     if (ADMIN_EMAILS.includes(user.email)) {
       qOrders = query(collection(db, 'artifacts', appId, 'public', 'data', 'orders'), orderBy('timestamp', 'desc'));
@@ -161,44 +161,13 @@ export default function App() {
       unsubUser();
     };
   }, [user]);
-    fetch(SCRIPT_URL)
-      .then(res => res.json())
-      .then(data => {
-        if (Array.isArray(data)) setProducts(data);
-        else if (data && typeof data === 'object') {
-          if (Array.isArray(data.products)) setProducts(data.products);
-          else if (Array.isArray(data.data)) setProducts(data.data);
-          if (data.announcement) setAnnouncement(data.announcement);
-        }
-      })
-      .catch(err => console.error("Sheet Fetch Error:", err));
-  }, [syncProfile]);
-
-  useEffect(() => {
-    if (!user) return;
-    const qOrders = query(collection(db, 'artifacts', appId, 'public', 'data', 'orders'), orderBy('timestamp', 'desc'));
-    onSnapshot(qOrders, (sn) => {
-      const docs = sn.docs.map(d => ({ id: d.id, ...d.data() }));
-      setAllOrders(docs); 
-      setMyOrders(docs.filter(o => o && o.userId === user.uid));
-    });
-    
-    const userRef = doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data');
-    onSnapshot(userRef, (docSnap) => { 
-      if(docSnap.exists()) {
-        const d = docSnap.data();
-        setProfile(d);
-        if (d.phone) setCustomerPhone(d.phone);
-      } 
-    });
-  }, [user]);
 
   // --- (၄) ORDER SUBMIT LOGIC ---
   const handleOrder = async () => {
     if (!user) return setView('welcome');
     
     const totalPrice = cart.reduce((s, i) => s + parseInt(getPProp(i, 'Price') || 0), 0);
-    const totalCost = cart.reduce((s, i) => s + parseInt(getPProp(i, 'Total') || getPProp(i, 'Cost') || 0), 0); // 🟢 Cost ကိုပါ တွက်ယူသည်
+    const totalCost = cart.reduce((s, i) => s + parseInt(getPProp(i, 'Total') || getPProp(i, 'Cost') || 0), 0);
 
     if (cart.length === 0) return alert("စျေးဝယ်လှည်းထဲတွင် ပစ္စည်းမရှိသေးပါခင်ဗျာ။");
     if (!customerPhone.trim() || customerPhone.length < 8) return alert("ဆက်သွယ်ရမည့် ဖုန်းနံပါတ်ကို သေချာစွာ ဖြည့်သွင်းပေးပါခင်ဗျာ။");
@@ -217,7 +186,7 @@ export default function App() {
       plan: cart.map(i => getPProp(i, 'Plan')).join(", "),
       prefix: cart.map(i => getPProp(i, 'Prefix') || "General").join(", "), 
       price: totalPrice,
-      cost: totalCost, // 🟢 Telegram တွင် Profit ပြရန် Cost ထည့်ပို့သည်
+      cost: totalCost, 
       contact: `📱 Phone: ${customerPhone.trim()}\n📝 Info: ${editContact.trim()}`,
       paymentMethod: selectedPayment.name,
       payImage: payImg,
@@ -235,7 +204,6 @@ export default function App() {
         timestamp: Date.now() 
       });
 
-      // Send Notification to Telegram
       await fetch(SCRIPT_URL, { 
         method: "POST", 
         mode: "no-cors", 
@@ -263,7 +231,6 @@ export default function App() {
 
       const currentOrder = allOrders.find(o => o.id === orderId);
 
-      // GAS ဆီသို့ Email ပို့ရန် လှမ်းခိုင်းခြင်း
       await fetch(SCRIPT_URL, {
         method: "POST",
         mode: "no-cors",
@@ -367,8 +334,16 @@ export default function App() {
   return (
     <div className="bg-[#050d1a] min-h-screen text-white font-sans flex items-center justify-center p-0 md:p-4">
       <style>{`
-        @keyframes marquee { 0% { transform: translateX(100%); } 100% { transform: translateX(-50%); } }
-        .animate-marquee { white-space: nowrap; display: inline-block; animation: marquee 50s linear infinite; }
+        @keyframes marquee { 
+          0% { transform: translateX(100%); } 
+          100% { transform: translateX(-50%); } 
+        }
+        .animate-marquee { 
+          white-space: nowrap; 
+          display: inline-block; 
+          padding-right: 50px; 
+          animation: marquee 35s linear infinite; 
+        }
         .animate-marquee:hover { animation-play-state: paused; }
       `}</style>
 
@@ -480,7 +455,7 @@ export default function App() {
           </div>
         )}
 
-        {/* --- VIEW: CART & CHECKOUT (Untouched / Same as Before) --- */}
+        {/* --- VIEW: CART & CHECKOUT --- */}
         {view === 'cart_view' && (
           <div className="p-5 pb-36 flex flex-col flex-1">
             <MainHeader />
