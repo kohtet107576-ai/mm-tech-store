@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from 'firebase/auth';
-import { getFirestore, doc, setDoc, getDoc, collection, addDoc, onSnapshot, updateDoc, query, orderBy } from 'firebase/firestore';
+import { getFirestore, doc, setDoc, getDoc, collection, addDoc, onSnapshot, updateDoc, query, orderBy, where } from 'firebase/firestore';
 import { 
   ShoppingBag, ArrowLeft, CheckCircle2, Loader2, User, ShieldCheck, 
   LogOut, Send, Image as ImageIcon, History, X, Search, ShoppingCart, 
@@ -104,11 +104,43 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    onAuthStateChanged(auth, async (u) => {
-      if (u) { setUser(u); await syncProfile(u); } 
-      else { setUser(null); setProfile(null); }
-      setView('home'); 
+    if (!user) return;
+    
+    // 🟢 Admin ဆိုလျှင် အကုန်ဆွဲယူမည်၊ User ဆိုလျှင် မိမိအော်ဒါသာ ဆွဲယူမည် (Firebase Security Rule နှင့် ကိုက်ညီစေရန်)
+    let qOrders;
+    if (ADMIN_EMAILS.includes(user.email)) {
+      qOrders = query(collection(db, 'artifacts', appId, 'public', 'data', 'orders'), orderBy('timestamp', 'desc'));
+    } else {
+      qOrders = query(collection(db, 'artifacts', appId, 'public', 'data', 'orders'), where('userId', '==', user.uid), orderBy('timestamp', 'desc'));
+    }
+
+    const unsubOrders = onSnapshot(qOrders, (sn) => {
+      const docs = sn.docs.map(d => ({ id: d.id, ...d.data() }));
+      if (ADMIN_EMAILS.includes(user.email)) {
+        setAllOrders(docs); 
+        setMyOrders(docs.filter(o => o && o.userId === user.uid));
+      } else {
+        setMyOrders(docs);
+        setAllOrders([]);
+      }
+    }, (error) => {
+      console.error("Order fetch error:", error);
     });
+    
+    const userRef = doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data');
+    const unsubUser = onSnapshot(userRef, (docSnap) => { 
+      if(docSnap.exists()) {
+        const d = docSnap.data();
+        setProfile(d);
+        if (d.phone) setCustomerPhone(d.phone);
+      } 
+    });
+
+    return () => {
+      unsubOrders();
+      unsubUser();
+    };
+  }, [user]);
 
     fetch(SCRIPT_URL)
       .then(res => res.json())
