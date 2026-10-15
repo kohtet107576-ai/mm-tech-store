@@ -84,7 +84,7 @@ export default function App() {
   const [isSocialOpen, setIsSocialOpen] = useState(false);
   const [deliveryInputs, setDeliveryInputs] = useState({});
 
-  // --- (၃) PROFILE & DATA SYNC ---
+// --- (၃) PROFILE & DATA SYNC ---
   const syncProfile = useCallback(async (u) => {
     const docRef = doc(db, 'artifacts', appId, 'users', u.uid, 'profile', 'data');
     try {
@@ -102,6 +102,26 @@ export default function App() {
       if (pData.phone) setCustomerPhone(pData.phone);
     } catch (e) { console.error(e); }
   }, []);
+
+  useEffect(() => {
+    onAuthStateChanged(auth, async (u) => {
+      if (u) { setUser(u); await syncProfile(u); } 
+      else { setUser(null); setProfile(null); }
+      setView('home'); 
+    });
+
+    fetch(SCRIPT_URL)
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) setProducts(data);
+        else if (data && typeof data === 'object') {
+          if (Array.isArray(data.products)) setProducts(data.products);
+          else if (Array.isArray(data.data)) setProducts(data.data);
+          if (data.announcement) setAnnouncement(data.announcement);
+        }
+      })
+      .catch(err => console.error("Sheet Fetch Error:", err));
+  }, [syncProfile]); // 🟢 ဒီနေရာမှာ Unexpected "," Error ရှင်းသွားပါမည်
 
   useEffect(() => {
     if (!user) return;
@@ -141,7 +161,6 @@ export default function App() {
       unsubUser();
     };
   }, [user]);
-
     fetch(SCRIPT_URL)
       .then(res => res.json())
       .then(data => {
