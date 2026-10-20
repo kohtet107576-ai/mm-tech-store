@@ -14,19 +14,19 @@ const LOGO_URL = "https://drive.google.com/thumbnail?id=1Lh-nHgyLMSr3rBVe4OGnjEv
 // 🔴 GAS Script URL အသစ်
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwHTn9ROfzNUroCtKDUEAdz07Qd7BEkMAwy7fpCXBxP665umrCV6RNE5Ndzxdtm9IMj/exec"; 
 
-const API_SECRET = process.env.REACT_APP_API_SECRET; 
-const IMGBB_API_KEY = process.env.REACT_APP_IMGBB_API_KEY;
+const API_SECRET = import.meta.env.VITE_API_SECRET; 
+const IMGBB_API_KEY = import.meta.env.VITE_IMGBB_API_KEY;
 const ADMIN_EMAILS = ["kohtet107576@gmail.com"]; 
 const TG_BOT_URL = "https://t.me/mmtech19";
 
 // 🟢 Firebase Config 
 const firebaseConfig = {
-  apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
-  authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.REACT_APP_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.REACT_APP_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.REACT_APP_FIREBASE_APP_ID
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
 
 const app = initializeApp(firebaseConfig);
